@@ -177,44 +177,66 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
 # 各スライドの表示時間は対応する音声の長さに合わせます。
 # Args:
 #     png_paths (list[str]): PNGファイルパスのリスト（スライド順）
-#     audio_path (str): 結合済み音声ファイルパス
+#     audio_paths (list[str|None]): 音声ファイルパスのリスト
 #     output_mp4 (str): 出力MP4ファイルパス
-def create_video_ffmpeg(png_paths, audio_path, output_mp4="output.mp4"):
+def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
     ffmpeg_path = str(_BASE_DIR / "ffmpeg.exe")
 
-    # concat用のdemuxerファイルを生成
-    concat_file = "concat_list.txt"
-    audio = AudioSegment.from_wav(audio_path)
-    total_duration_sec = len(audio) / 1000.0
-    duration_per_slide = total_duration_sec / len(png_paths)
+    # 各スライドの音声長を取得
+    durations = []
+    for path in audio_paths:
+        if path and os.path.exists(path):
+            seg = AudioSegment.from_mp3(path)
+            durations.append(len(seg) / 1000.0)
+        else:
+            durations.append(2.0)  # 空スライドは2秒
 
+    # concat demuxerファイルを生成（スライドごとに個別duration）
+    concat_file = "concat_list.txt"
     with open(concat_file, "w", encoding="utf-8") as f:
-        for png in png_paths:
+        for png, duration in zip(png_paths, durations):
             f.write(f"file '{os.path.abspath(png)}'\n")
-            f.write(f"duration {duration_per_slide:.3f}\n")
+            f.write(f"duration {duration:.3f}\n")
         # 最後のフレームを明示（FFmpegのconcat demuxer仕様）
         f.write(f"file '{os.path.abspath(png_paths[-1])}'\n")
 
+    # 音声を結合してWAVに出力
+    combined_audio_path = "combined_audio_tmp.wav"
+    # combined = AudioSegment.empty()
+    # for path in audio_paths:
+    #     if path and os.path.exists(path):
+    #         combined += AudioSegment.from_mp3(path)
+    #     else:
+    #         combined += AudioSegment.silent(duration=2000)
+    # combined.export(combined_audio_path, format="wav")
+    combined_audio = combine_audio(audio_paths, output_path=combined_audio_path)
+
+
     cmd = [
-        "ffmpeg", "-y",
-        "-f", "concat",
-        "-safe", "0",
-        "-i", concat_file,
-        "-i", audio_path,
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-c:a", "aac",
-        "-shortest",
-        output_mp4
+        ffmpeg_path,            # 実行するffmpegのパス（スクリプトと同階層のffmpeg.exe）
+        "-y",                   # 出力ファイルが既に存在する場合、確認なしで上書き
+        "-f", "concat",         # 入力フォーマットとしてconcat demuxerを使用
+        "-safe", "0",           # concat_list.txt内の絶対パスを許可（デフォルトは相対パスのみ）
+        "-i", concat_file,      # 入力①：concat_list.txt（スライドPNGと各表示時間を定義したファイル）
+        "-i", combined_audio,   # 入力②：結合済み音声ファイル（WAV）
+        "-c:v", "libx264",      # 映像コーデックにH.264を使用
+        "-pix_fmt", "yuv420p",  # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
+        "-fps_mode", "vfr",     # フレームレートモードをVFR（可変フレームレート）に設定
+                                # concat demuxerが指定したdurationをタイムスタンプとして正確に反映させる
+        "-c:a", "aac",          # 音声コーデックにAACを使用
+        "-map", "0:v:0",        # 入力①（concat_list.txt）の映像ストリーム0番を出力に使用
+        "-map", "1:a:0",        # 入力②（combined_audio）の音声ストリーム0番を出力に使用
+        output_mp4              # 出力ファイルパス
     ]
     subprocess.run(cmd, check=True)
     print(f"動画生成完了: {output_mp4}")
 
     # 一時ファイル削除
-    os.remove(concat_file)
+    # os.remove(concat_file)
+    # os.remove(combined_audio_path)
 
 
 # ──────────────────────────────────────────
@@ -244,18 +266,18 @@ def pptx_to_video(
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang)
 
-    print("\n=== STEP 3: 音声結合 ===")
-    combined_audio = combine_audio(audio_paths, output_path="combined_audio.wav")
+    # print("\n=== STEP 3: 音声結合 ===")
+    # combined_audio = combine_audio(audio_paths, output_path="combined_audio.wav")
 
-    print("\n=== STEP 4: 動画合成 ===")
-    create_video_ffmpeg(png_paths, combined_audio, output_mp4=output_mp4)
+    print("\n=== STEP 3: 動画合成 ===")
+    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4)
 
-    # 中間ファイルのクリーンアップ
-    if os.path.exists(combined_audio):
-        os.remove(combined_audio)
-    for p in audio_paths:
-        if p and os.path.exists(p):
-            os.remove(p)
+    # # 中間ファイルのクリーンアップ
+    # if os.path.exists(combined_audio):
+    #     os.remove(combined_audio)
+    # for p in audio_paths:
+    #     if p and os.path.exists(p):
+    #         os.remove(p)
 
     print(f"\n✅ 完了: {output_mp4}")
 

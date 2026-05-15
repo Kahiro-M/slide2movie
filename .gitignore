@@ -224,3 +224,5 @@ slides_png/*
 ffmpeg.exe
 ffprobe.exe
 *.pptx
+*.wav
+concat_list.txt
