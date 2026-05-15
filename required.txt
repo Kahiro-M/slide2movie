@@ -1,1 +1,1 @@
-pip install python-pptx pillow gTTS pydub
+pip install python-pptx gTTS pydub pywin32
