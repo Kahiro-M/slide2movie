@@ -274,11 +274,16 @@ def pptx_to_video(
 
     # 各スライドの音声ファイルを削除（デバッグ時は保持）
     if not debug:
+        for p in png_paths:
+            if p and os.path.exists(p):
+                os.remove(p)
+        print("画像ファイルを削除しました。")
         for p in audio_paths:
             if p and os.path.exists(p):
                 os.remove(p)
         print("音声ファイルを削除しました。")
     else:
+        print("[DEBUG] 画像ファイルを保持しています。")
         print("[DEBUG] 音声ファイルを保持しています。")
 
     print(f"\n✅ 完了: {output_mp4}")
