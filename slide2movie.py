@@ -425,7 +425,7 @@ def pptx_to_video(
     png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
 
     # クレジットスライドを末尾に追加
-    if voicevox:
+    if voicevox and is_voicevox_running():
         speaker_id = voicevoxid  # 実際に使用している話者ID
         credit_text = get_voicevox_credit(speaker_id)
         credit_png = generate_credit_slide(
@@ -438,7 +438,7 @@ def pptx_to_video(
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
 
     # クレジット用無音を末尾に追加
-    if voicevox:
+    if voicevox and is_voicevox_running():
         silence_path = os.path.join(os.path.abspath(audio_dir), "audio_credit.wav")
         audio_paths.append(generate_silence_wav(silence_path, duration_sec=1.0))
 
