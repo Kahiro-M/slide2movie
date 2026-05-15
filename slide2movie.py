@@ -179,7 +179,8 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
 #     png_paths (list[str]): PNGファイルパスのリスト（スライド順）
 #     audio_paths (list[str|None]): 音声ファイルパスのリスト
 #     output_mp4 (str): 出力MP4ファイルパス
-def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
+#     debug (bool): デバッグモード
+def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=False):
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
@@ -230,9 +231,13 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
     subprocess.run(cmd, check=True)
     print(f"動画生成完了: {output_mp4}")
 
-    # 一時ファイル削除
-    # os.remove(concat_file)
-    # os.remove(combined_audio_path)
+    # デバッグモードのみ中間ファイルを保持
+    if not debug:
+        os.remove(concat_file)
+        os.remove(combined_audio)
+        print("中間ファイルを削除しました。")
+    else:
+        print(f"[DEBUG] 中間ファイルを保持しています: {concat_file}, {combined_audio}")
 
 
 # ──────────────────────────────────────────
@@ -248,6 +253,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
 #     lang (str): 音声言語コード
 #     png_dir (str): PNG一時保存ディレクトリ
 #     audio_dir (str): 音声一時保存ディレクトリ
+#     debug (bool): デバッグモード（中間ファイルを保持）
 def pptx_to_video(
     pptx_path,
     output_mp4="output.mp4",
@@ -255,6 +261,7 @@ def pptx_to_video(
     lang="ja",
     png_dir="slides_png",
     audio_dir="slides_audio",
+    debug=False,
 ):
     print("=== STEP 1: PNG変換 ===")
     png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
@@ -262,18 +269,17 @@ def pptx_to_video(
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang)
 
-    # print("\n=== STEP 3: 音声結合 ===")
-    # combined_audio = combine_audio(audio_paths, output_path="combined_audio.wav")
-
     print("\n=== STEP 3: 動画合成 ===")
-    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4)
+    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug)
 
-    # # 中間ファイルのクリーンアップ
-    # if os.path.exists(combined_audio):
-    #     os.remove(combined_audio)
-    # for p in audio_paths:
-    #     if p and os.path.exists(p):
-    #         os.remove(p)
+    # 各スライドの音声ファイルを削除（デバッグ時は保持）
+    if not debug:
+        for p in audio_paths:
+            if p and os.path.exists(p):
+                os.remove(p)
+        print("音声ファイルを削除しました。")
+    else:
+        print("[DEBUG] 音声ファイルを保持しています。")
 
     print(f"\n✅ 完了: {output_mp4}")
 
@@ -290,6 +296,7 @@ def main():
         output_mp4=args['output'],
         dpi=args['dpi'],
         lang=args['lang'],
+        debug=args['debug'],
     )
 
 # 相対パス取得
@@ -316,6 +323,7 @@ def doArgParse():
     parser.add_argument('--output', required=True, help='出力ファイルパス（例: /file/to/path.mp4）')
     parser.add_argument('--dpi', type=int, default=150, help='PNG解像度（例: 150）')
     parser.add_argument('--lang', type=str, default='ja', help='音声言語コード（例: ja）')
+    parser.add_argument('--debug', action='store_true', help='デバッグモード（中間ファイルを保持）')
     args = parser.parse_args()
     return vars(args)
 
