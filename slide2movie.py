@@ -201,6 +201,99 @@ def is_voicevox_running(url="http://localhost:50021"):
     except requests.exceptions.ConnectionError:
         return False
 
+# VOICEVOXの話者IDからクレジット表示文言を生成
+# Args:
+#     speaker_id (int): 使用する話者ID（style_id）
+#     voicevox_url (str): VOICEVOX APIのベースURL
+# Returns:
+#     str: クレジット表示文言
+def get_voicevox_credit(speaker_id: int, voicevox_url: str = "http://localhost:50021") -> str:
+    import requests
+    try:
+        res = requests.get(f"{voicevox_url}/speakers", timeout=5)
+        res.raise_for_status()
+        speakers = res.json()
+    except Exception as e:
+        return f"VOICEVOX（クレジット情報取得失敗: {e}）"
+
+    # speaker_id（style_id）からキャラクター名・スタイル名を特定
+    for speaker in speakers:
+        for style in speaker["styles"]:
+            if style["id"] == speaker_id:
+                character_name = speaker["name"]
+                style_name = style["name"]
+                return _build_credit(character_name, style_name)
+
+    # speaker_id が style["id"] に直接対応する場合（上記でヒットしない場合のフォールバック）
+    for speaker in speakers:
+        for style in speaker["styles"]:
+            if style["id"] == speaker_id:
+                character_name = speaker["name"]
+                style_name = style["name"]
+                return _build_credit(character_name, style_name)
+
+    return f"VOICEVOX（話者ID {speaker_id} が見つかりません）"
+
+# キャラクター名・スタイル名から利用規約に応じたクレジット文言を生成
+# VOICEVOX共通ルール:
+#     - 基本形式: 「VOICEVOX:{キャラクター名}」
+#     - 青山龍星: クレジット除去不可・明示必須
+#     - その他: 同形式で対応
+# Args:
+#     character_name (str): キャラクター名（例: "ずんだもん"）
+#     style_name (str): スタイル名（例: "ノーマル"）
+# Returns:
+#     str: クレジット表示文言
+def _build_credit(character_name: str, style_name: str) -> str:
+    # クレジット除去不可キャラ（規約上明示されているもの）
+    NO_REMOVAL_CHARACTERS = {"青山龍星"}
+    base_credit = f"VOICEVOX:{character_name}"
+    if character_name in NO_REMOVAL_CHARACTERS:
+        return f"{base_credit}（クレジット表記必須・除去不可）"
+    return base_credit
+
+# クレジット表示用のPNG画像を生成
+# Args:
+#     credit_text (str): 表示するクレジット文言（例: "VOICEVOX:ずんだもん"）
+#     output_path (str): 出力PNGファイルパス
+#     width (int): 画像の幅（px）
+#     height (int): 画像の高さ（px）
+#     bg_color (tuple): 背景色（RGB）
+#     text_color (tuple): テキスト色（RGB）
+#     font_size (int): フォントサイズ
+# Returns:
+#     str: 生成したPNGファイルパス
+def generate_credit_slide(
+    credit_text: str,
+    output_path: str = "credit_slide.png",
+    width: int = 1280,
+    height: int = 720,
+    bg_color: tuple = (0, 0, 0),
+    text_color: tuple = (255, 255, 255),
+    font_size: int = 40,
+) -> str:
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (width, height), color=bg_color)
+    draw = ImageDraw.Draw(img)
+
+    # フォント読み込み（システムフォントにフォールバック）
+    try:
+        font = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    # テキストをセンタリング
+    bbox = draw.textbbox((0, 0), credit_text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    x = (width - text_width) // 2
+    y = (height - text_height) // 2
+
+    draw.text((x, y), credit_text, fill=text_color, font=font)
+    img.save(output_path, "PNG")
+    print(f"クレジットスライド生成: {output_path}")
+    return output_path
 
 # ──────────────────────────────────────────
 # 3. 音声ファイルを結合してWAVに出力
@@ -324,6 +417,16 @@ def pptx_to_video(
 ):
     print("=== STEP 1: PNG変換 ===")
     png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
+
+    # クレジットスライドを末尾に追加
+    if voicevox:
+        speaker_id = voicevoxid  # 実際に使用している話者ID
+        credit_text = get_voicevox_credit(speaker_id)
+        credit_png = generate_credit_slide(
+            credit_text=credit_text,
+            output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
+        )
+        png_paths.append(credit_png)
 
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
