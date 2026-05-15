@@ -193,6 +193,8 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
             durations.append(len(seg) / 1000.0)
         else:
             durations.append(2.0)  # 空スライドは2秒
+    total_duration = sum(durations)  # durationリストの合計
+    print(f"合計再生時間: {total_duration:.3f} 秒")
 
     # concat demuxerファイルを生成（スライドごとに個別duration）
     concat_file = "concat_list.txt"
@@ -204,32 +206,26 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4"):
         f.write(f"file '{os.path.abspath(png_paths[-1])}'\n")
 
     # 音声を結合してWAVに出力
-    combined_audio_path = "combined_audio_tmp.wav"
-    # combined = AudioSegment.empty()
-    # for path in audio_paths:
-    #     if path and os.path.exists(path):
-    #         combined += AudioSegment.from_mp3(path)
-    #     else:
-    #         combined += AudioSegment.silent(duration=2000)
-    # combined.export(combined_audio_path, format="wav")
+    combined_audio_path = "combined_audio.wav"
     combined_audio = combine_audio(audio_paths, output_path=combined_audio_path)
 
+    print(f"結合された音声の長さ: {len(AudioSegment.from_wav(combined_audio_path)) / 1000.0} 秒")
 
     cmd = [
-        ffmpeg_path,            # 実行するffmpegのパス（スクリプトと同階層のffmpeg.exe）
-        "-y",                   # 出力ファイルが既に存在する場合、確認なしで上書き
-        "-f", "concat",         # 入力フォーマットとしてconcat demuxerを使用
-        "-safe", "0",           # concat_list.txt内の絶対パスを許可（デフォルトは相対パスのみ）
-        "-i", concat_file,      # 入力①：concat_list.txt（スライドPNGと各表示時間を定義したファイル）
-        "-i", combined_audio,   # 入力②：結合済み音声ファイル（WAV）
-        "-c:v", "libx264",      # 映像コーデックにH.264を使用
-        "-pix_fmt", "yuv420p",  # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
-        "-fps_mode", "vfr",     # フレームレートモードをVFR（可変フレームレート）に設定
-                                # concat demuxerが指定したdurationをタイムスタンプとして正確に反映させる
-        "-c:a", "aac",          # 音声コーデックにAACを使用
-        "-map", "0:v:0",        # 入力①（concat_list.txt）の映像ストリーム0番を出力に使用
-        "-map", "1:a:0",        # 入力②（combined_audio）の音声ストリーム0番を出力に使用
-        output_mp4              # 出力ファイルパス
+        ffmpeg_path,                # 実行するffmpegのパス（スクリプトと同階層のffmpeg.exe）
+        "-y",                       # 出力ファイルが既に存在する場合、確認なしで上書き
+        "-f", "concat",             # 入力フォーマットとしてconcat demuxerを使用
+        "-safe", "0",               # concat_list.txt内の絶対パスを許可（デフォルトは相対パスのみ）
+        "-i", concat_file,          # 入力①：concat_list.txt（スライドPNGと各表示時間を定義したファイル）
+        "-i", combined_audio,       # 入力②：結合済み音声ファイル（WAV）
+        "-c:v", "libx264",          # 映像コーデックにH.264を使用
+        "-pix_fmt", "yuv420p",      # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
+        "-r", "30",                 # フレームレートを30fpsに設定
+        "-t", str(total_duration),  # 動画の総再生時間を指定（concat_list.txtのduration合計）
+        "-c:a", "aac",              # 音声コーデックにAACを使用
+        "-map", "0:v:0",            # 入力①（concat_list.txt）の映像ストリーム0番を出力に使用
+        "-map", "1:a:0",            # 入力②（combined_audio）の音声ストリーム0番を出力に使用
+        output_mp4                  # 出力ファイルパス
     ]
     subprocess.run(cmd, check=True)
     print(f"動画生成完了: {output_mp4}")
