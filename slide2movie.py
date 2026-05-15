@@ -130,10 +130,21 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja"):
     audio_paths = []
 
     for i, slide in enumerate(prs.slides):
-        text = " ".join(
-            shape.text for shape in slide.shapes
-            if hasattr(shape, "text")
-        ).strip()
+        # スライドノートがある場合はノートテキストを優先して取得
+        notes_text = ""
+        if slide.has_notes_slide:
+            notes_text = slide.notes_slide.notes_text_frame.text.strip()
+
+        if notes_text:
+            text = notes_text
+            print(f"スライド {i+1}: ノートからテキスト取得")
+        else:
+            # スライド上の全テキストを結合して取得
+            text = " ".join(
+                shape.text for shape in slide.shapes
+                if hasattr(shape, "text")
+            ).strip()
+            print(f"スライド {i+1}: スライド本文からテキスト取得")
 
         if text:
             tts = gTTS(text=text, lang=lang, slow=False)
