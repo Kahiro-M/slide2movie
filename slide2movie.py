@@ -1,0 +1,288 @@
+import os
+import io
+from pptx import Presentation
+from pptx.util import Inches
+from PIL import Image, ImageDraw, ImageFont
+import subprocess
+from gtts import gTTS
+from pydub import AudioSegment
+
+# スクリプトと同階層のffmpegを使用
+_BASE_DIR = Path(__file__).parent
+AudioSegment.converter = str(_BASE_DIR / "ffmpeg.exe")
+AudioSegment.ffmpeg    = str(_BASE_DIR / "ffmpeg.exe")
+AudioSegment.ffprobe   = str(_BASE_DIR / "ffprobe.exe")
+
+# ──────────────────────────────────────────
+# 1. PPTXの各スライドをPNG画像に変換
+# ──────────────────────────────────────────
+# PPTXの各スライドをPNG画像に変換します。
+# LibreOfficeを使わず、python-pptx + Pillowで実装。
+# Args:
+#     pptx_path (str): 入力PPTXファイルパス
+#     output_dir (str): 出力ディレクトリ
+#     dpi (int): 画像解像度（デフォルト150）
+# Returns:
+#     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
+def pptx_to_pngs(pptx_path, output_dir="slides_png", dpi=150):
+    os.makedirs(output_dir, exist_ok=True)
+    prs = Presentation(pptx_path)
+
+    # スライドサイズ取得（EMU → ピクセル変換）
+    emu_per_inch = 914400
+    slide_width_px  = int(prs.slide_width  / emu_per_inch * dpi)
+    slide_height_px = int(prs.slide_height / emu_per_inch * dpi)
+
+    png_paths = []
+
+    for i, slide in enumerate(prs.slides):
+        # スライドの背景色を取得（取得できない場合は白）
+        try:
+            bg_color = slide.background.fill.fore_color.rgb
+            bg = tuple(int(bg_color[j:j+2], 16) for j in (0, 2, 4))
+        except Exception:
+            bg = (255, 255, 255)
+
+        img = Image.new("RGB", (slide_width_px, slide_height_px), color=bg)
+        draw = ImageDraw.Draw(img)
+
+        # テキストシェイプを描画（簡易レンダリング）
+        for shape in slide.shapes:
+            if not shape.has_text_frame:
+                continue
+            for para in shape.text_frame.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    continue
+                # 位置をEMU → ピクセルに変換
+                x = int(shape.left  / emu_per_inch * dpi) if shape.left  else 10
+                y = int(shape.top   / emu_per_inch * dpi) if shape.top   else 10
+                draw.text((x, y), text, fill=(0, 0, 0))
+
+        output_path = os.path.join(output_dir, f"slide_{i+1:03d}.png")
+        img.save(output_path, "PNG", dpi=(dpi, dpi))
+        print(f"PNG保存: {output_path}")
+        png_paths.append(output_path)
+
+    return png_paths
+
+# PowerPoint COMオブジェクトを使ってスライドをPNGに変換する方法（Windows限定）
+# Args:
+#     pptx_path (str): 入力PPTXファイルパス
+#     output_dir (str): 出力ディレクトリ
+# Returns:
+#     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
+def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
+    os.makedirs(output_dir, exist_ok=True)
+    abs_pptx = str(Path(pptx_path).resolve())
+    abs_out  = str(Path(output_dir).resolve())
+
+    ppt = win32com.client.Dispatch("PowerPoint.Application")
+    ppt.Visible = 1
+
+    try:
+        pres = ppt.Presentations.Open(abs_pptx)
+        pres.Export(abs_out, "PNG")
+        slide_count = pres.Slides.Count
+        pres.Close()
+    finally:
+        ppt.Quit()
+
+    # スライド順にソートしてパスリストを構築
+    png_files = sorted(
+        Path(abs_out).glob("*.PNG"),
+        key=lambda p: p.stem  # "スライド1", "スライド2" ... の順
+    )
+
+    png_paths = [str(p) for p in png_files]
+    return png_paths
+
+
+# ──────────────────────────────────────────
+# 2. スライドテキストから音声ファイルを生成
+# ──────────────────────────────────────────
+# 各スライドのテキストからMP3音声を生成します。
+# Args:
+#     pptx_path (str): 入力PPTXファイルパス
+#     audio_dir (str): 音声ファイルの出力ディレクトリ
+#     lang (str): 音声言語コード（デフォルト 'ja'）
+# Returns:
+#     list[str|None]: 各スライドの音声ファイルパス（空スライドはNone）
+def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja"):
+    os.makedirs(audio_dir, exist_ok=True)
+    prs = Presentation(pptx_path)
+    audio_paths = []
+
+    for i, slide in enumerate(prs.slides):
+        text = " ".join(
+            shape.text for shape in slide.shapes
+            if hasattr(shape, "text")
+        ).strip()
+
+        if text:
+            tts = gTTS(text=text, lang=lang, slow=False)
+            audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.mp3")
+            tts.save(audio_path)
+            print(f"音声保存: {audio_path}")
+            audio_paths.append(audio_path)
+        else:
+            audio_paths.append(None)
+
+    return audio_paths
+
+
+# ──────────────────────────────────────────
+# 3. 音声ファイルを結合してWAVに出力
+# ──────────────────────────────────────────
+# 複数のMP3音声ファイルを結合してWAVファイルを生成します。
+# Args:
+#     audio_paths (list[str|None]): 音声ファイルパスのリスト
+#     output_path (str): 結合後のWAVファイルパス
+# Returns:
+#     str: 出力WAVファイルパス
+def combine_audio(audio_paths, output_path="combined_audio.wav"):
+    combined = AudioSegment.empty()
+    for path in audio_paths:
+        if path and os.path.exists(path):
+            combined += AudioSegment.from_mp3(path)
+        else:
+            # 空スライドは2秒の無音を挿入
+            combined += AudioSegment.silent(duration=2000)
+
+    combined.export(output_path, format="wav")
+    print(f"音声結合完了: {output_path}")
+    return output_path
+
+
+# ──────────────────────────────────────────
+# 4. FFmpegでPNG + 音声を動画に合成
+# ──────────────────────────────────────────
+# PNG画像リストと音声ファイルをFFmpegで動画に合成します。
+# 各スライドの表示時間は対応する音声の長さに合わせます。
+# Args:
+#     png_paths (list[str]): PNGファイルパスのリスト（スライド順）
+#     audio_path (str): 結合済み音声ファイルパス
+#     output_mp4 (str): 出力MP4ファイルパス
+def create_video_ffmpeg(png_paths, audio_path, output_mp4="output.mp4"):
+    # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
+    _BASE_DIR = Path(__file__).parent
+    ffmpeg_path = str(_BASE_DIR / "ffmpeg.exe")
+
+    # concat用のdemuxerファイルを生成
+    concat_file = "concat_list.txt"
+    audio = AudioSegment.from_wav(audio_path)
+    total_duration_sec = len(audio) / 1000.0
+    duration_per_slide = total_duration_sec / len(png_paths)
+
+    with open(concat_file, "w", encoding="utf-8") as f:
+        for png in png_paths:
+            f.write(f"file '{os.path.abspath(png)}'\n")
+            f.write(f"duration {duration_per_slide:.3f}\n")
+        # 最後のフレームを明示（FFmpegのconcat demuxer仕様）
+        f.write(f"file '{os.path.abspath(png_paths[-1])}'\n")
+
+    cmd = [
+        "ffmpeg", "-y",
+        "-f", "concat",
+        "-safe", "0",
+        "-i", concat_file,
+        "-i", audio_path,
+        "-c:v", "libx264",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-shortest",
+        output_mp4
+    ]
+    subprocess.run(cmd, check=True)
+    print(f"動画生成完了: {output_mp4}")
+
+    # 一時ファイル削除
+    os.remove(concat_file)
+
+
+# ──────────────────────────────────────────
+# 5. メイン処理（統合実行）
+# ──────────────────────────────────────────
+# PPTXファイルを動画（MP4）に変換します。
+# LibreOfficeを使わず、python-pptx + Pillow + gTTS + FFmpegで実装。
+
+# Args:
+#     pptx_path (str): 入力PPTXファイルパス
+#     output_mp4 (str): 出力MP4ファイルパス
+#     dpi (int): PNG解像度
+#     lang (str): 音声言語コード
+#     png_dir (str): PNG一時保存ディレクトリ
+#     audio_dir (str): 音声一時保存ディレクトリ
+def pptx_to_video(
+    pptx_path,
+    output_mp4="output.mp4",
+    dpi=150,
+    lang="ja",
+    png_dir="slides_png",
+    audio_dir="slides_audio",
+):
+    print("=== STEP 1: PNG変換 ===")
+    png_paths = pptx_to_pngs(pptx_path, output_dir=png_dir, dpi=dpi)
+
+    print("\n=== STEP 2: 音声生成 ===")
+    audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang)
+
+    print("\n=== STEP 3: 音声結合 ===")
+    combined_audio = combine_audio(audio_paths, output_path="combined_audio.wav")
+
+    print("\n=== STEP 4: 動画合成 ===")
+    create_video_ffmpeg(png_paths, combined_audio, output_mp4=output_mp4)
+
+    # 中間ファイルのクリーンアップ
+    if os.path.exists(combined_audio):
+        os.remove(combined_audio)
+    for p in audio_paths:
+        if p and os.path.exists(p):
+            os.remove(p)
+
+    print(f"\n✅ 完了: {output_mp4}")
+
+
+# ──────────────────────────────────────────
+# 実行
+# ──────────────────────────────────────────
+def main():
+    args = doArgParse()
+    print(f'指定された引数: {args}')
+    
+    pptx_to_video(
+        pptx_path=args['file'],
+        output_mp4=args['output'],
+        dpi=args['dpi'],
+        lang=args['lang'],
+    )
+
+# 相対パス取得
+def getRelativePath(filePath):
+    from pathlib import Path
+    if(Path(filePath).is_absolute()):
+        return Path(filePath).relative_to(Path.cwd())
+    else:
+        return filePath
+
+# 絶対パス取得
+def getAbsolutePath(filePath):
+    from pathlib import Path
+    if(Path(filePath).is_absolute()):
+        return filePath
+    else:
+        return Path(filePath).resolve()
+
+# 引数解析
+def doArgParse():
+    import argparse
+    parser = argparse.ArgumentParser(description='PPTXファイルをMP4動画に変換する')
+    parser.add_argument('--file',   required=True,  help='ファイルパス（例: /file/to/path.pptx）')
+    parser.add_argument('--output', required=True, help='出力ファイルパス（例: /file/to/path.mp4）')
+    parser.add_argument('--dpi', type=int, default=150, help='PNG解像度（例: 150）')
+    parser.add_argument('--lang', type=str, default='ja', help='音声言語コード（例: ja）')
+    args = parser.parse_args()
+    return vars(args)
+
+if __name__ == '__main__':
+    main()
