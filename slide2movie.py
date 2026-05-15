@@ -192,6 +192,12 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
 
     return audio_paths
 
+# 空スライド用の無音WAVを生成（VOICEVOXモードで音声が生成できない場合のフォールバック）
+def generate_silence_wav(output_path: str, duration_sec: float = 1.0) -> str:
+    silence = AudioSegment.silent(duration=int(duration_sec * 1000))
+    silence.export(output_path, format="wav")
+    return output_path
+
 # VOICEVOXがローカルで起動しているか確認する関数
 def is_voicevox_running(url="http://localhost:50021"):
     import requests
@@ -430,6 +436,11 @@ def pptx_to_video(
 
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
+
+    # クレジット用無音を末尾に追加
+    if voicevox:
+        silence_path = os.path.join(os.path.abspath(audio_dir), "audio_credit.wav")
+        audio_paths.append(generate_silence_wav(silence_path, duration_sec=1.0))
 
     print("\n=== STEP 3: 動画合成 ===")
     create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug)
