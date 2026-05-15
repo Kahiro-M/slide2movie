@@ -117,9 +117,12 @@ def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
 #     pptx_path (str): 入力PPTXファイルパス
 #     audio_dir (str): 音声ファイルの出力ディレクトリ
 #     lang (str): 音声言語コード（デフォルト 'ja'）
+#     voicevox (bool): VOICEVOX音声モード（デフォルト False）
+#     voicevox=True の場合はローカルVOICEVOX APIを使用（WAV出力）。
+#     voicevox=False の場合はgTTSを使用（MP3出力）。
 # Returns:
 #     list[str|None]: 各スライドの音声ファイルパス（空スライドはNone）
-def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja"):
+def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevox=False, voicevoxid=3):
 
     # 出力ディレクトリを削除して再作成（初期化）
     if os.path.exists(audio_dir):
@@ -146,16 +149,57 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja"):
             ).strip()
             print(f"スライド {i+1}: スライド本文からテキスト取得")
 
+
+
         if text:
-            tts = gTTS(text=text, lang=lang, slow=False)
-            audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.mp3")
-            tts.save(audio_path)
-            print(f"音声保存: {audio_path}")
-            audio_paths.append(audio_path)
+            # voicevoxがローカルで起動しているか確認
+            voicevox = is_voicevox_running()
+            if voicevox:
+                import requests
+                VOICEVOX_URL = "http://localhost:50021"
+                VOICEVOX_SPEAKER = voicevoxid  # 話者ID
+
+                # VOICEVOX API で音声生成（WAV）
+                try:
+                    query = requests.post(
+                        f"{VOICEVOX_URL}/audio_query",
+                        params={"text": text, "speaker": VOICEVOX_SPEAKER}
+                    ).json()
+
+                    audio_bytes = requests.post(
+                        f"{VOICEVOX_URL}/synthesis",
+                        params={"speaker": VOICEVOX_SPEAKER},
+                        json=query
+                    ).content
+
+                    audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.wav")
+                    with open(audio_path, "wb") as f:
+                        f.write(audio_bytes)
+                    print(f"音声保存（VOICEVOX）: {audio_path}")
+                    audio_paths.append(audio_path)
+
+                except Exception as e:
+                    print(f"スライド {i+1}: VOICEVOX音声生成失敗 ({e}) → Noneとして処理")
+                    audio_paths.append(None)
+            else:
+                tts = gTTS(text=text, lang=lang, slow=False)
+                audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.mp3")
+                tts.save(audio_path)
+                print(f"音声保存: {audio_path}")
+                audio_paths.append(audio_path)
         else:
             audio_paths.append(None)
 
     return audio_paths
+
+# VOICEVOXがローカルで起動しているか確認する関数
+def is_voicevox_running(url="http://localhost:50021"):
+    import requests
+    try:
+        res = requests.get(f"{url}/version", timeout=2)
+        return res.status_code == 200
+    except requests.exceptions.ConnectionError:
+        return False
 
 
 # ──────────────────────────────────────────
@@ -264,6 +308,8 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
 #     lang (str): 音声言語コード
 #     png_dir (str): PNG一時保存ディレクトリ
 #     audio_dir (str): 音声一時保存ディレクトリ
+#     voicevox (bool): VOICEVOX音声モード
+#     voicevoxid (int): VOICEVOX話者ID(デフォルト3: ずんだもんノーマル)
 #     debug (bool): デバッグモード（中間ファイルを保持）
 def pptx_to_video(
     pptx_path,
@@ -272,13 +318,15 @@ def pptx_to_video(
     lang="ja",
     png_dir="slides_png",
     audio_dir="slides_audio",
+    voicevox=False,
+    voicevoxid=3,
     debug=False,
 ):
     print("=== STEP 1: PNG変換 ===")
     png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
 
     print("\n=== STEP 2: 音声生成 ===")
-    audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang)
+    audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
 
     print("\n=== STEP 3: 動画合成 ===")
     create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug)
@@ -312,6 +360,8 @@ def main():
         output_mp4=args['output'],
         dpi=args['dpi'],
         lang=args['lang'],
+        voicevox=args['voicevox'],
+        voicevoxid=args['voicevoxid'],
         debug=args['debug'],
     )
 
@@ -337,6 +387,8 @@ def doArgParse():
     parser = argparse.ArgumentParser(description='PPTXファイルをMP4動画に変換する')
     parser.add_argument('--file',   required=True,  help='ファイルパス（例: /file/to/path.pptx）')
     parser.add_argument('--output', required=True, help='出力ファイルパス（例: /file/to/path.mp4）')
+    parser.add_argument('--voicevox', action='store_true', help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
+    parser.add_argument('--voicevoxid', type=int, default=3, help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
     parser.add_argument('--dpi', type=int, default=150, help='PNG解像度（例: 150）')
     parser.add_argument('--lang', type=str, default='ja', help='音声言語コード（例: ja）')
     parser.add_argument('--debug', action='store_true', help='デバッグモード（中間ファイルを保持）')
