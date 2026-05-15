@@ -220,3 +220,7 @@ __marimo__/
 # Generated files
 slides_audio/*
 slides_png/*
+*.mp4
+ffmpeg.exe
+ffprobe.exe
+*.pptx

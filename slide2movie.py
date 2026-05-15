@@ -1,11 +1,9 @@
 import os
-import io
 from pptx import Presentation
-from pptx.util import Inches
-from PIL import Image, ImageDraw, ImageFont
-import subprocess
 from gtts import gTTS
 from pydub import AudioSegment
+from pathlib import Path
+import shutil
 
 # スクリプトと同階層のffmpegを使用
 _BASE_DIR = Path(__file__).parent
@@ -25,6 +23,7 @@ AudioSegment.ffprobe   = str(_BASE_DIR / "ffprobe.exe")
 # Returns:
 #     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
 def pptx_to_pngs(pptx_path, output_dir="slides_png", dpi=150):
+    from PIL import Image, ImageDraw, ImageFont
     os.makedirs(output_dir, exist_ok=True)
     prs = Presentation(pptx_path)
 
@@ -73,7 +72,13 @@ def pptx_to_pngs(pptx_path, output_dir="slides_png", dpi=150):
 # Returns:
 #     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
 def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
-    os.makedirs(output_dir, exist_ok=True)
+    import win32com.client
+
+    # 出力ディレクトリを削除して再作成（初期化）
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
     abs_pptx = str(Path(pptx_path).resolve())
     abs_out  = str(Path(output_dir).resolve())
 
@@ -94,7 +99,13 @@ def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
         key=lambda p: p.stem  # "スライド1", "スライド2" ... の順
     )
 
-    png_paths = [str(p) for p in png_files]
+    # slide_001.png 形式にリネーム
+    png_paths = []
+    for i, src in enumerate(png_files, start=1):
+        dst = Path(abs_out) / f"slide_{i:03d}.png"
+        src.rename(dst)
+        png_paths.append(str(dst))
+
     return png_paths
 
 
@@ -109,7 +120,12 @@ def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
 # Returns:
 #     list[str|None]: 各スライドの音声ファイルパス（空スライドはNone）
 def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja"):
-    os.makedirs(audio_dir, exist_ok=True)
+
+    # 出力ディレクトリを削除して再作成（初期化）
+    if os.path.exists(audio_dir):
+        shutil.rmtree(audio_dir)
+    os.makedirs(audio_dir)
+
     prs = Presentation(pptx_path)
     audio_paths = []
 
@@ -164,6 +180,7 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
 #     audio_path (str): 結合済み音声ファイルパス
 #     output_mp4 (str): 出力MP4ファイルパス
 def create_video_ffmpeg(png_paths, audio_path, output_mp4="output.mp4"):
+    import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
     ffmpeg_path = str(_BASE_DIR / "ffmpeg.exe")
@@ -222,7 +239,7 @@ def pptx_to_video(
     audio_dir="slides_audio",
 ):
     print("=== STEP 1: PNG変換 ===")
-    png_paths = pptx_to_pngs(pptx_path, output_dir=png_dir, dpi=dpi)
+    png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
 
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang)
