@@ -277,6 +277,9 @@ def generate_credit_slide(
     bg_color: tuple = (0, 0, 0),
     text_color: tuple = (255, 255, 255),
     font_size: int = 40,
+    image_path: str = None,
+    image_max_size: tuple = (640, 480),
+    margin: int = 20,
 ) -> str:
     from PIL import Image, ImageDraw, ImageFont
 
@@ -289,14 +292,29 @@ def generate_credit_slide(
     except Exception:
         font = ImageFont.load_default()
 
-    # テキストをセンタリング
+    # 画像を中央配置
+    if image_path:
+        overlay = Image.open(image_path).convert("RGBA")
+        ow, oh = overlay.size
+        max_w, max_h = image_max_size
+        scale = min(max_w / ow, max_h / oh, 1.0)
+        new_w = int(ow * scale)
+        new_h = int(oh * scale)
+        overlay = overlay.resize((new_w, new_h), Image.LANCZOS)
+
+        # 画像を画面中央に配置
+        x = (width - new_w) // 2
+        y = (height - new_h) // 2
+        img.paste(overlay, (x, y), overlay)
+
+    # テキストの位置を計算して描画
     bbox = draw.textbbox((0, 0), credit_text, font=font)
     text_width = bbox[2] - bbox[0]
     text_height = bbox[3] - bbox[1]
-    x = (width - text_width) // 2
-    y = (height - text_height) // 2
+    text_x = width - text_width - margin
+    text_y = height - text_height - margin
 
-    draw.text((x, y), credit_text, fill=text_color, font=font)
+    draw.text((text_x, text_y), credit_text, fill=text_color, font=font)
     img.save(output_path, "PNG")
     print(f"クレジットスライド生成: {output_path}")
     return output_path
@@ -409,6 +427,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
 #     audio_dir (str): 音声一時保存ディレクトリ
 #     voicevox (bool): VOICEVOX音声モード
 #     voicevoxid (int): VOICEVOX話者ID(デフォルト3: ずんだもんノーマル)
+#     creditimg (str): クレジット画像ファイルパス（例: /file/to/credit.png）
 #     debug (bool): デバッグモード（中間ファイルを保持）
 def pptx_to_video(
     pptx_path,
@@ -419,6 +438,7 @@ def pptx_to_video(
     audio_dir="slides_audio",
     voicevox=False,
     voicevoxid=3,
+    creditimg=None,
     debug=False,
 ):
     print("=== STEP 1: PNG変換 ===")
@@ -428,11 +448,22 @@ def pptx_to_video(
     if voicevox and is_voicevox_running():
         speaker_id = voicevoxid  # 実際に使用している話者ID
         credit_text = get_voicevox_credit(speaker_id)
-        credit_png = generate_credit_slide(
-            credit_text=credit_text,
-            output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
-        )
-        png_paths.append(credit_png)
+    else:
+        credit_text = ''
+
+    if creditimg and os.path.exists(creditimg):
+        creditimg_path=creditimg,
+    else:
+        creditimg_path = None
+
+    credit_png = generate_credit_slide(
+        credit_text=credit_text,
+        output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
+        image_path=creditimg_path,
+        bg_color=(255, 255, 255),
+        text_color=(128, 128, 128),
+    )
+    png_paths.append(credit_png)
 
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
@@ -476,6 +507,7 @@ def main():
         lang=args['lang'],
         voicevox=args['voicevox'],
         voicevoxid=args['voicevoxid'],
+        creditimg=args['creditimg'],
         debug=args['debug'],
     )
 
@@ -503,6 +535,7 @@ def doArgParse():
     parser.add_argument('--output', required=True, help='出力ファイルパス（例: /file/to/path.mp4）')
     parser.add_argument('--voicevox', action='store_true', help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
     parser.add_argument('--voicevoxid', type=int, default=3, help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
+    parser.add_argument('--creditimg', type=str, default=None, help='クレジット画像ファイルパス（例: /file/to/credit.png）')
     parser.add_argument('--dpi', type=int, default=150, help='PNG解像度（例: 150）')
     parser.add_argument('--lang', type=str, default='ja', help='音声言語コード（例: ja）')
     parser.add_argument('--debug', action='store_true', help='デバッグモード（中間ファイルを保持）')
