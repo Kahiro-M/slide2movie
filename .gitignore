@@ -227,3 +227,4 @@ ffprobe.exe
 *.wav
 concat_list.txt
 logo.png
+config.ini

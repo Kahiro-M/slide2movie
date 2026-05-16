@@ -4,6 +4,8 @@ from gtts import gTTS
 from pydub import AudioSegment
 from pathlib import Path
 import shutil
+import argparse
+import configparser
 
 # スクリプトと同階層のffmpegを使用
 _BASE_DIR = Path(__file__).parent
@@ -528,19 +530,112 @@ def getAbsolutePath(filePath):
         return Path(filePath).resolve()
 
 # 引数解析
-def doArgParse():
-    import argparse
-    parser = argparse.ArgumentParser(description='PPTXファイルをMP4動画に変換する')
-    parser.add_argument('--file',   required=True,  help='ファイルパス（例: /file/to/path.pptx）')
-    parser.add_argument('--output', required=True, help='出力ファイルパス（例: /file/to/path.mp4）')
-    parser.add_argument('--voicevox', action='store_true', help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
-    parser.add_argument('--voicevoxid', type=int, default=3, help='VOICEVOX音声モード（ローカルVOICEVOX APIを使用してWAV出力）')
-    parser.add_argument('--creditimg', type=str, default=None, help='クレジット画像ファイルパス（例: /file/to/credit.png）')
-    parser.add_argument('--dpi', type=int, default=150, help='PNG解像度（例: 150）')
-    parser.add_argument('--lang', type=str, default='ja', help='音声言語コード（例: ja）')
-    parser.add_argument('--debug', action='store_true', help='デバッグモード（中間ファイルを保持）')
+def doArgParse() -> dict:
+    parser = build_parser(ARG_DESCRIPTION)
     args = parser.parse_args()
-    return vars(args)
+    arg_dict = vars(args)
+    config_path = arg_dict.pop('config')
+    ini_dict = load_ini(config_path)
+
+    # 優先順位: 引数 > ini > デフォルト
+    merged = {}
+    for opt in OPTION_DEFS:
+        key = opt['name']
+        if arg_dict.get(key) is not None:
+            merged[key] = arg_dict[key]
+        elif key in ini_dict:
+            merged[key] = ini_dict[key]
+        else:
+            merged[key] = opt['default']
+
+    # 必須チェック
+    for opt in OPTION_DEFS:
+        if opt['required'] and not merged.get(opt['name']):
+            parser.error(f'--{opt["name"]} が指定されていません（引数またはiniファイルで設定してください）')
+
+    # iniファイルが存在しない場合は現在の設定値で生成する
+    save_ini_if_missing(config_path, merged)
+
+    return merged
+
+
+# ──────────────
+# オプション定義
+# ──────────────
+ARG_DESCRIPTION = 'PPTXファイルをMP4動画に変換する'
+OPTION_DEFS = [
+    #    name               type       default                required        store_true        help
+    dict(name='file',       type=str,  default='input.pptx',  required=True,  store_true=False, help='入力PPTXファイルパス'),
+    dict(name='output',     type=str,  default='output.mp4',  required=True,  store_true=False, help='出力MP4ファイルパス'),
+    dict(name='dpi',        type=int,  default=150,           required=False, store_true=False, help='PNG解像度'),
+    dict(name='lang',       type=str,  default='ja',          required=False, store_true=False, help='音声言語コード'),
+    dict(name='voicevox',   type=bool, default=False,         required=False, store_true=True,  help='VOICEVOX音声モード'),
+    dict(name='voicevoxid', type=int,  default=3,             required=False, store_true=False, help='VOICEVOX話者ID'),
+    dict(name='creditimg',  type=str,  default=None,          required=False, store_true=False, help='クレジット画像パス'),
+    dict(name='debug',      type=bool, default=False,         required=False, store_true=True,  help='デバッグモード'),
+]
+
+
+# OPTION_DEFSからargparseを生成
+def build_parser(desc=ARG_DESCRIPTION) -> argparse.ArgumentParser:
+    import argparse
+    parser = argparse.ArgumentParser(description=desc)
+    parser.add_argument('--config', default='config.ini', help='設定ファイルパス')
+
+    for opt in OPTION_DEFS:
+        if opt['store_true']:
+            parser.add_argument(f'--{opt["name"]}', action='store_true', default=None, help=opt['help'])
+        else:
+            parser.add_argument(f'--{opt["name"]}', type=opt['type'], default=None, help=opt['help'])
+
+    return parser
+
+
+# OPTION_DEFSの型定義に従ってiniファイルを読み込む
+def load_ini(config_path: str) -> dict:
+    config = configparser.ConfigParser()
+    if not Path(config_path).exists():
+        return {}
+
+    config.read(config_path, encoding='utf-8')
+    section = 'settings'
+    if section not in config:
+        return {}
+
+    ini = config[section]
+    result = {}
+
+    for opt in OPTION_DEFS:
+        key = opt['name']
+        if key not in ini:
+            continue
+        if opt['type'] == int:
+            result[key] = ini.getint(key)
+        elif opt['type'] == bool or opt['store_true']:
+            result[key] = ini.getboolean(key)
+        else:
+            result[key] = ini[key]
+
+    return result
+
+# iniファイルが存在しない場合、現在の設定値をiniとして書き出す
+def save_ini_if_missing(config_path: str, merged: dict) -> None:
+    if Path(config_path).exists():
+        return
+
+    config = configparser.ConfigParser()
+    config['settings'] = {}
+
+    for opt in OPTION_DEFS:
+        key = opt['name']
+        value = merged.get(key)
+        if value is None:
+            config['settings'][key] = ''
+        else:
+            config['settings'][key] = str(value).lower() if isinstance(value, bool) else str(value)
+
+    with open(config_path, 'w', encoding='utf-8') as f:
+        config.write(f)
 
 if __name__ == '__main__':
     main()
