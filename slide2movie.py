@@ -499,6 +499,8 @@ def pptx_to_video(
 # 実行
 # ──────────────────────────────────────────
 def main():
+    print('====== Slide to Movie ======')
+    print('                     v.0.0.1')
     args = doArgParse()
     print(f'指定された引数: {args}')
     
