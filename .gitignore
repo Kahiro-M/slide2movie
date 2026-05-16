@@ -226,5 +226,8 @@ ffprobe.exe
 *.pptx
 *.wav
 concat_list.txt
+*credit*.png
 logo.png
 config.ini
+ignore/*
+
