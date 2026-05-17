@@ -9,9 +9,24 @@ import configparser
 
 # スクリプトと同階層のffmpegを使用
 _BASE_DIR = Path(__file__).parent
-AudioSegment.converter = str(_BASE_DIR / "ffmpeg.exe")
-AudioSegment.ffmpeg    = str(_BASE_DIR / "ffmpeg.exe")
-AudioSegment.ffprobe   = str(_BASE_DIR / "ffprobe.exe")
+
+# ffmpeg / ffprobe のパスを解決する（クロスプラットフォーム対応）
+def find_ffmpeg(name: str) -> str:
+    import platform
+    # システムの PATH 上にあれば優先
+    found = shutil.which(name)
+    if found:
+        return found
+    # Windows の場合は同階層の .exe にフォールバック
+    if platform.system() == "Windows":
+        local = _BASE_DIR / f"{name}.exe"
+        if local.exists():
+            return str(local)
+    raise FileNotFoundError(f"{name} が見つかりません。インストールまたは同階層に配置してください。")
+
+AudioSegment.converter = find_ffmpeg("ffmpeg")
+AudioSegment.ffmpeg    = find_ffmpeg("ffmpeg")
+AudioSegment.ffprobe   = find_ffmpeg("ffprobe")
 
 # ──────────────────────────────────────────
 # 1. PPTXの各スライドをPNG画像に変換
@@ -343,6 +358,21 @@ def _build_credit(character_name: str, style_name: str) -> str:
         return f"{base_credit}（クレジット表記必須・除去不可）"
     return base_credit
 
+def _find_font(size: int):
+    from PIL import ImageFont
+    candidates=[
+        "C:/Windows/Fonts/meiryo.ttc",  # Windows
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",  # Ubuntu
+        "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",  # macOS
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path,size)
+        except Exception:
+            continue
+        return ImageFont.load_default()
+
+
 # クレジット表示用のPNG画像を生成
 # Args:
 #     credit_text (str): 表示するクレジット文言（例: "VOICEVOX:ずんだもん"）
@@ -372,10 +402,7 @@ def generate_credit_slide(
     draw = ImageDraw.Draw(img)
 
     # フォント読み込み（システムフォントにフォールバック）
-    try:
-        font = ImageFont.truetype("C:/Windows/Fonts/meiryo.ttc", font_size)
-    except Exception:
-        font = ImageFont.load_default()
+    font = _find_font(font_size)
 
     # 画像を中央配置
     if image_path:
@@ -441,7 +468,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
-    ffmpeg_path = shutil.which("ffmpeg") or str(_BASE_DIR / "ffmpeg.exe")
+    ffmpeg_path = find_ffmpeg("ffmpeg")
 
     # 各スライドの音声長を取得
     durations = []
