@@ -110,6 +110,89 @@ def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
 
     return png_paths
 
+# PowerPoint COMオブジェクトが利用可能か確認する（Windows限定）
+def is_powerpoint_available() -> bool:
+    import platform
+    if platform.system() != "Windows":
+        return False
+    try:
+        import win32com.client
+        ppt = win32com.client.Dispatch("PowerPoint.Application")
+        ppt.Quit()
+        return True
+    except Exception:
+        return False
+
+
+# LibreOfficeを使ってスライドをPNGに変換する
+# Args:
+#     pptx_path (str): 入力PPTXファイルパス
+#     output_dir (str): 出力ディレクトリ
+# Returns:
+#     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
+def pptx_to_pngs_libreoffice(pptx_path, output_dir="slides_png"):
+    import subprocess
+
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
+    os.makedirs(output_dir)
+
+    abs_pptx = str(Path(pptx_path).resolve())
+    abs_out = str(Path(output_dir).resolve())
+
+    # LibreOfficeのパス候補（環境に合わせて調整）
+    libreoffice_candidates = [
+        r"C:\Program Files\LibreOffice\program\soffice.exe",
+        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        "soffice",  # PATH が通っている場合
+    ]
+    libreoffice_path = None
+    for candidate in libreoffice_candidates:
+        if Path(candidate).exists() or candidate == "soffice":
+            libreoffice_path = candidate
+            break
+
+    if libreoffice_path is None:
+        raise FileNotFoundError("LibreOfficeが見つかりません。インストール先を確認してください。")
+
+    subprocess.run(
+        [
+            libreoffice_path,
+            "--headless",
+            "--convert-to", "png",
+            "--outdir", abs_out,
+            abs_pptx,
+        ],
+        check=True,
+    )
+
+    # LibreOfficeの出力ファイル名は元ファイル名ベースになるため、
+    # slide_001.png 形式にリネーム
+    # 例: input.png, input2.png ... または input-001.png など環境依存
+    png_files = sorted(Path(abs_out).glob("*.png"))
+    png_paths = []
+    for i, src in enumerate(png_files, start=1):
+        dst = Path(abs_out) / f"slide_{i:03d}.png"
+        src.rename(dst)
+        png_paths.append(str(dst))
+
+    return png_paths
+
+# LibreOfficeが利用可能か確認
+def is_libreoffice_available() -> bool:
+    import platform
+    import shutil
+    # PATH上のsofficeのみで判定（クロスプラットフォーム対応）
+    if shutil.which("soffice"):
+        return True
+    # Windowsのみパス候補を追加
+    if platform.system() == "Windows":
+        candidates = [
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+        ]
+        return any(Path(c).exists() for c in candidates)
+    return False
 
 # ──────────────────────────────────────────
 # 2. スライドテキストから音声ファイルを生成
@@ -358,7 +441,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
-    ffmpeg_path = str(_BASE_DIR / "ffmpeg.exe")
+    ffmpeg_path = shutil.which("ffmpeg") or str(_BASE_DIR / "ffmpeg.exe")
 
     # 各スライドの音声長を取得
     durations = []
@@ -443,8 +526,26 @@ def pptx_to_video(
     creditimg=None,
     debug=False,
 ):
+
+    # ── 環境判定（最初に1回だけ実施） ──────────────────────
+    import platform
+    ENV_OS              = platform.system()
+    ENV_USE_PPT         = is_powerpoint_available()   # Windows + PowerPoint
+    ENV_USE_LIBREOFFICE = is_libreoffice_available()  # LibreOffice
+    ENV_USE_VOICEVOX    = is_voicevox_running()        # VOICEVOX APIサーバー
+
+    print(f"[ENV] OS={ENV_OS}, PowerPoint={ENV_USE_PPT}, LibreOffice={ENV_USE_LIBREOFFICE}, VOICEVOX={ENV_USE_VOICEVOX}")
+
     print("=== STEP 1: PNG変換 ===")
-    png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
+    if ENV_USE_PPT:
+        print("PowerPoint COMを使用してPNG変換します。")
+        png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
+    elif ENV_USE_LIBREOFFICE:
+        print("LibreOfficeを使用してPNG変換します。")
+        png_paths = pptx_to_pngs_libreoffice(pptx_path, output_dir=png_dir)
+    else:
+        print("PowerPoint・LibreOfficeが見つかりません。python-pptx + Pillowでフォールバック変換します。")
+        png_paths = pptx_to_pngs(pptx_path, output_dir=png_dir, dpi=dpi)
 
     # クレジットスライドを末尾に追加
     if voicevox and is_voicevox_running():
@@ -454,7 +555,7 @@ def pptx_to_video(
         credit_text = ''
 
     if creditimg and os.path.exists(creditimg):
-        creditimg_path=creditimg,
+        creditimg_path=creditimg
     else:
         creditimg_path = None
 
@@ -500,7 +601,7 @@ def pptx_to_video(
 # ──────────────────────────────────────────
 def main():
     print('====== Slide to Movie ======')
-    print('                     v.0.0.1')
+    print('                     v.0.0.2')
     args = doArgParse()
     print(f'指定された引数: {args}')
     
