@@ -518,6 +518,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         "-i", combined_audio,       # 入力②：結合済み音声ファイル（WAV）
         "-c:v", "libx264",          # 映像コーデックにH.264を使用
         "-pix_fmt", "yuv420p",      # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", # 幅・高さをそれぞれ2の倍数に切り捨てる
         "-r", "30",                 # フレームレートを30fpsに設定
         "-t", str(total_duration),  # 動画の総再生時間を指定（concat_list.txtのduration合計）
         "-c:a", "aac",              # 音声コーデックにAACを使用
