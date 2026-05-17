@@ -183,6 +183,7 @@ def pptx_to_pngs_libreoffice(pptx_path, output_dir="slides_png"):
             libreoffice_path,
             "--headless",
             "--convert-to", "png",
+            "--infilter=Impress PNG Export", 
             "--outdir", abs_out,
             abs_pptx,
         ],
