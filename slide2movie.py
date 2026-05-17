@@ -250,11 +250,9 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
             print(f"スライド {i+1}: スライド本文からテキスト取得")
 
 
-
         if text:
             # voicevoxがローカルで起動しているか確認
-            voicevox = is_voicevox_running()
-            if voicevox:
+            if voicevox and is_voicevox_running():
                 import requests
                 VOICEVOX_URL = "http://localhost:50021"
                 VOICEVOX_SPEAKER = voicevoxid  # 話者ID
