@@ -477,7 +477,8 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
 #     audio_paths (list[str|None]): 音声ファイルパスのリスト
 #     output_mp4 (str): 出力MP4ファイルパス
 #     debug (bool): デバッグモード
-def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=False):
+#     quality (int): 動画品質（1-31、値が小さいほど高品質）
+def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=False, quality=5):
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
@@ -517,7 +518,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         "-i", concat_file,          # 入力①：concat_list.txt（スライドPNGと各表示時間を定義したファイル）
         "-i", combined_audio,       # 入力②：結合済み音声ファイル（WAV）
         "-c:v", "mpeg4",            # 映像コーデックにMPEG-4 Part 2（FFmpeg完全内蔵）
-        "-q:v", "5",                # 品質指定（1〜31、値が小さいほど高品質）
+        "-q:v", str(quality),       # 品質指定（1〜31、値が小さいほど高品質）
         "-pix_fmt", "yuv420p",      # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
         "-vf", "format=rgb24,scale=trunc(iw/2)*2:trunc(ih/2)*2", # RGBビット深度を24にし、幅・高さをそれぞれ2の倍数に切り捨てる
         "-r", "30",                 # フレームレートを30fpsに設定
@@ -560,6 +561,7 @@ def pptx_to_video(
     pptx_path,
     output_mp4="output.mp4",
     dpi=150,
+    quality=5,
     lang="ja",
     png_dir="slides_png",
     audio_dir="slides_audio",
@@ -617,6 +619,14 @@ def pptx_to_video(
     else:
         creditcolor_value = (128, 128, 128)
 
+    if quality is not None:
+        if isinstance(quality, int) and 1 <= quality <= 31:
+            quality_value = quality
+        else:
+            quality_value = 5  # デフォルト品質
+    else:
+        quality_value = 5  # デフォルト品質
+
     credit_png = generate_credit_slide(
         credit_text=credit_text,
         output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
@@ -635,7 +645,7 @@ def pptx_to_video(
         audio_paths.append(generate_silence_wav(silence_path, duration_sec=1.0))
 
     print("\n=== STEP 3: 動画合成 ===")
-    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug)
+    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug, quality=quality_value)
 
     # 各スライドの音声ファイルを削除（デバッグ時は保持）
     if not debug:
@@ -667,7 +677,7 @@ def hex_color(value: str) -> tuple[int, int, int]:
 # ──────────────────────────────────────────
 def main():
     print('====== Slide to Movie ======')
-    print('                     v.0.0.3')
+    print('                     v.0.0.4')
     args = doArgParse()
     print(f'指定された引数: {args}')
     
@@ -675,6 +685,7 @@ def main():
         pptx_path=args['file'],
         output_mp4=args['output'],
         dpi=args['dpi'],
+        quality=args['quality'],
         lang=args['lang'],
         voicevox=args['voicevox'],
         voicevoxid=args['voicevoxid'],
@@ -739,6 +750,7 @@ OPTION_DEFS = [
     dict(name='file',        type=str,  default='input.pptx',  required=True,  store_true=False, help='入力PPTXファイルパス'),
     dict(name='output',      type=str,  default='output.mp4',  required=True,  store_true=False, help='出力MP4ファイルパス'),
     dict(name='dpi',         type=int,  default=150,           required=False, store_true=False, help='PNG解像度'),
+    dict(name='quality',     type=int,  default=5,             required=False, store_true=False, help='動画品質（1-31、値が小さいほど高品質）'),
     dict(name='lang',        type=str,  default='ja',          required=False, store_true=False, help='音声言語コード'),
     dict(name='voicevox',    type=bool, default=False,         required=False, store_true=True,  help='VOICEVOX音声モード'),
     dict(name='voicevoxid',  type=int,  default=3,             required=False, store_true=False, help='VOICEVOX話者ID'),
