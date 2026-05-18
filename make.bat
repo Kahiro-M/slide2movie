@@ -1,0 +1,1 @@
+pyinstaller --onefile --icon=icon.ico slide2movie.py -n slide2movie

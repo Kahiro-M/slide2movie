@@ -1,5 +1,5 @@
 # Windows
-# pip install python-pptx gTTS pydub pywin32
+# pip install python-pptx gTTS pydub pywin32 pyinstaller
 
 # Linux
 # sudo apt update
