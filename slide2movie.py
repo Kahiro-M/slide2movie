@@ -605,21 +605,21 @@ def pptx_to_video(
     else:
         creditimg_path = None
 
-    if creditbg is not None:
+    if creditbg != '' and creditbg is not None:
         # カラーコードをRGBタプルに変換
         creditbg_r, creditbg_g, creditbg_b = bytes.fromhex(creditbg.lstrip('#'))
         creditbg_value = (creditbg_r, creditbg_g, creditbg_b)
     else:
         creditbg_value = (255, 255, 255)
 
-    if creditcolor is not None:
+    if creditcolor != '' and creditcolor is not None:
         # カラーコードをRGBタプルに変換
         creditcolor_r, creditcolor_g, creditcolor_b = bytes.fromhex(creditcolor.lstrip('#'))
         creditcolor_value = (creditcolor_r, creditcolor_g, creditcolor_b)
     else:
         creditcolor_value = (128, 128, 128)
 
-    if quality is not None:
+    if quality != '' and quality is not None:
         if isinstance(quality, int) and 1 <= quality <= 31:
             quality_value = quality
         else:
@@ -677,7 +677,7 @@ def hex_color(value: str) -> tuple[int, int, int]:
 # ──────────────────────────────────────────
 def main():
     print('====== Slide to Movie ======')
-    print('                     v.0.0.4')
+    print('                     v.0.0.5')
     args = doArgParse()
     print(f'指定された引数: {args}')
     
