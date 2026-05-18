@@ -565,6 +565,8 @@ def pptx_to_video(
     voicevox=False,
     voicevoxid=3,
     creditimg=None,
+    creditbg=None,
+    creditcolor=None,
     debug=False,
 ):
 
@@ -600,12 +602,26 @@ def pptx_to_video(
     else:
         creditimg_path = None
 
+    if creditbg is not None:
+        # カラーコードをRGBタプルに変換
+        creditbg_r, creditbg_g, creditbg_b = bytes.fromhex(creditbg.lstrip('#'))
+        creditbg_value = (creditbg_r, creditbg_g, creditbg_b)
+    else:
+        creditbg_value = (255, 255, 255)
+
+    if creditcolor is not None:
+        # カラーコードをRGBタプルに変換
+        creditcolor_r, creditcolor_g, creditcolor_b = bytes.fromhex(creditcolor.lstrip('#'))
+        creditcolor_value = (creditcolor_r, creditcolor_g, creditcolor_b)
+    else:
+        creditcolor_value = (128, 128, 128)
+
     credit_png = generate_credit_slide(
         credit_text=credit_text,
         output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
         image_path=creditimg_path,
-        bg_color=(255, 255, 255),
-        text_color=(128, 128, 128),
+        bg_color=creditbg_value,
+        text_color=creditcolor_value,
     )
     png_paths.append(credit_png)
 
@@ -636,13 +652,21 @@ def pptx_to_video(
 
     print(f"\n✅ 完了: {output_mp4}")
 
+# #RRGGBB 形式の文字列を (R, G, B) タプルに変換
+def hex_color(value: str) -> tuple[int, int, int]:
+    import re
+    m = re.fullmatch(r'#([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})', value)
+    if not m:
+        raise argparse.ArgumentTypeError(f'カラーコードの形式が不正です: {value}（例: #FF00FF）')
+    return tuple(int(m.group(i), 16) for i in range(1, 4))
+
 
 # ──────────────────────────────────────────
 # 実行
 # ──────────────────────────────────────────
 def main():
     print('====== Slide to Movie ======')
-    print('                     v.0.0.2')
+    print('                     v.0.0.3')
     args = doArgParse()
     print(f'指定された引数: {args}')
     
@@ -654,6 +678,8 @@ def main():
         voicevox=args['voicevox'],
         voicevoxid=args['voicevoxid'],
         creditimg=args['creditimg'],
+        creditbg=args['creditbg'],
+        creditcolor=args['creditcolor'],
         debug=args['debug'],
     )
 
@@ -716,6 +742,8 @@ OPTION_DEFS = [
     dict(name='voicevox',   type=bool, default=False,         required=False, store_true=True,  help='VOICEVOX音声モード'),
     dict(name='voicevoxid', type=int,  default=3,             required=False, store_true=False, help='VOICEVOX話者ID'),
     dict(name='creditimg',  type=str,  default=None,          required=False, store_true=False, help='クレジット画像パス'),
+    dict(name='creditbg',   type=str,  default=None,          required=False, store_true=False, help='クレジット背景色（#FF6600のカラーコード）'),
+    dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, help='クレジットテキスト色（#FF6600のカラーコード）'),
     dict(name='debug',      type=bool, default=False,         required=False, store_true=True,  help='デバッグモード'),
 ]
 
