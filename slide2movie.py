@@ -516,9 +516,10 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         "-safe", "0",               # concat_list.txt内の絶対パスを許可（デフォルトは相対パスのみ）
         "-i", concat_file,          # 入力①：concat_list.txt（スライドPNGと各表示時間を定義したファイル）
         "-i", combined_audio,       # 入力②：結合済み音声ファイル（WAV）
-        "-c:v", "libx264",          # 映像コーデックにH.264を使用
+        "-c:v", "mpeg4",            # 映像コーデックにMPEG-4 Part 2（FFmpeg完全内蔵）
+        "-q:v", "5",                # 品質指定（1〜31、値が小さいほど高品質）
         "-pix_fmt", "yuv420p",      # ピクセルフォーマットをYUV 4:2:0に変換（広い互換性のため）
-        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", # 幅・高さをそれぞれ2の倍数に切り捨てる
+        "-vf", "format=rgb24,scale=trunc(iw/2)*2:trunc(ih/2)*2", # RGBビット深度を24にし、幅・高さをそれぞれ2の倍数に切り捨てる
         "-r", "30",                 # フレームレートを30fpsに設定
         "-t", str(total_duration),  # 動画の総再生時間を指定（concat_list.txtのduration合計）
         "-c:a", "aac",              # 音声コーデックにAACを使用
@@ -734,17 +735,17 @@ def doArgParse() -> dict:
 # ──────────────
 ARG_DESCRIPTION = 'PPTXファイルをMP4動画に変換する'
 OPTION_DEFS = [
-    #    name               type       default                required        store_true        help
-    dict(name='file',       type=str,  default='input.pptx',  required=True,  store_true=False, help='入力PPTXファイルパス'),
-    dict(name='output',     type=str,  default='output.mp4',  required=True,  store_true=False, help='出力MP4ファイルパス'),
-    dict(name='dpi',        type=int,  default=150,           required=False, store_true=False, help='PNG解像度'),
-    dict(name='lang',       type=str,  default='ja',          required=False, store_true=False, help='音声言語コード'),
-    dict(name='voicevox',   type=bool, default=False,         required=False, store_true=True,  help='VOICEVOX音声モード'),
-    dict(name='voicevoxid', type=int,  default=3,             required=False, store_true=False, help='VOICEVOX話者ID'),
-    dict(name='creditimg',  type=str,  default=None,          required=False, store_true=False, help='クレジット画像パス'),
-    dict(name='creditbg',   type=str,  default=None,          required=False, store_true=False, help='クレジット背景色（#FF6600のカラーコード）'),
+    #    name                type       default                required        store_true        help
+    dict(name='file',        type=str,  default='input.pptx',  required=True,  store_true=False, help='入力PPTXファイルパス'),
+    dict(name='output',      type=str,  default='output.mp4',  required=True,  store_true=False, help='出力MP4ファイルパス'),
+    dict(name='dpi',         type=int,  default=150,           required=False, store_true=False, help='PNG解像度'),
+    dict(name='lang',        type=str,  default='ja',          required=False, store_true=False, help='音声言語コード'),
+    dict(name='voicevox',    type=bool, default=False,         required=False, store_true=True,  help='VOICEVOX音声モード'),
+    dict(name='voicevoxid',  type=int,  default=3,             required=False, store_true=False, help='VOICEVOX話者ID'),
+    dict(name='creditimg',   type=str,  default=None,          required=False, store_true=False, help='クレジット画像パス'),
+    dict(name='creditbg',    type=str,  default=None,          required=False, store_true=False, help='クレジット背景色（#FF6600のカラーコード）'),
     dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, help='クレジットテキスト色（#FF6600のカラーコード）'),
-    dict(name='debug',      type=bool, default=False,         required=False, store_true=True,  help='デバッグモード'),
+    dict(name='debug',       type=bool, default=False,         required=False, store_true=True,  help='デバッグモード'),
 ]
 
 
