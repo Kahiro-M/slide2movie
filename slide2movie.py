@@ -6,7 +6,36 @@ from pathlib import Path
 import shutil
 import argparse
 import configparser
+import sys
 
+# 標準出力をUTF-8に再設定（Windows環境での文字化け対策）
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+# stdout をファイルと元のストリームに同時に書き出すラッパー
+class _Tee:
+    def __init__(self, stream, filepath: str):
+        # 元ストリームを行バッファリングに設定してからラップ
+        if hasattr(stream, 'reconfigure'):
+            # 標準出力を行単位でフラッシュする設定（リアルタイムログ出力のため）
+            stream.reconfigure(line_buffering=True)
+        self._stream = stream
+        self._file = open(filepath, "w", encoding="utf-8", buffering=1)
+
+    def write(self, data):
+        self._stream.write(data)
+        self._file.write(data)
+
+    def flush(self):
+        self._stream.flush()
+        self._file.flush()
+
+    def close(self):
+        self._file.close()
+
+    # sys.stdout が持つ属性に委譲（subprocess等の互換性のため）
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
+    
 # スクリプトと同階層のffmpegを使用
 _BASE_DIR = Path(__file__).parent
 
@@ -680,7 +709,14 @@ def main():
     print('                     v.0.0.5')
     args = doArgParse()
     print(f'指定された引数: {args}')
-    
+
+    # デバッグモードの場合、標準出力をファイルにも保存するためのクラス
+    if args['debug']:
+        import sys
+        log_path = os.path.splitext(os.path.abspath(args['output']))[0] + "_debug.log"
+        _tee = _Tee(sys.stdout, log_path)  # reconfigure もここで完結
+        sys.stdout = _tee
+        
     pptx_to_video(
         pptx_path=args['file'],
         output_mp4=args['output'],
