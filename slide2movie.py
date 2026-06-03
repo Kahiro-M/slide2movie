@@ -736,7 +736,8 @@ def doArgParse() -> dict:
             parser.error(f'--{opt["name"]} が指定されていません（引数またはiniファイルで設定してください）')
 
     # iniファイルが存在しない場合は現在の設定値で生成する
-    save_ini_if_missing(config_path, merged)
+    if Path(config_path).exists():
+        save_ini(config_path, merged)
 
     return merged
 
@@ -803,11 +804,8 @@ def load_ini(config_path: str) -> dict:
 
     return result
 
-# iniファイルが存在しない場合、現在の設定値をiniとして書き出す
-def save_ini_if_missing(config_path: str, merged: dict) -> None:
-    if Path(config_path).exists():
-        return
-
+# 現在の設定値をiniとして書き出す
+def save_ini(config_path: str, merged: dict) -> None:
     config = configparser.ConfigParser()
     config['settings'] = {}
 
