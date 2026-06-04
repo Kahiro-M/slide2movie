@@ -557,7 +557,24 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         "-map", "1:a:0",            # 入力②（combined_audio）の音声ストリーム0番を出力に使用
         output_mp4                  # 出力ファイルパス
     ]
-    subprocess.run(cmd, check=True)
+
+    # FFmpegの出力をリアルタイムで表示しながら実行
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        bufsize=1,
+    )
+    for raw_line in proc.stdout:
+        line = raw_line.decode("utf-8", errors="replace")
+        sys.stdout.write(line)
+        sys.stdout.flush()
+
+    # FFmpegのプロセスが終了するまで待機し、終了コードを確認
+    proc.wait()
+    if proc.returncode != 0:
+        raise subprocess.CalledProcessError(proc.returncode, cmd)
+
     print(f"動画生成完了: {output_mp4}")
 
     # デバッグモードのみ中間ファイルを保持
