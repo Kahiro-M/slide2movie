@@ -199,14 +199,6 @@ def pptx_to_pngs_libreoffice(pptx_path, output_dir="slides_png"):
     if libreoffice_path is None:
         raise FileNotFoundError("LibreOfficeが見つかりません。インストール先を確認してください。")
 
-    # result = subprocess.run(
-    #     [_find_unoconv(), "-f", "png", "-o", abs_out + "/", abs_pptx],  # 末尾スラッシュ付き
-    #     capture_output=True,
-    #     text=True,
-    # )
-    # print("[unoconv stdout]", result.stdout)
-    # print("[unoconv stderr]", result.stderr)
-    # print("[returncode]", result.returncode)
     subprocess.run(
         [
             libreoffice_path,
