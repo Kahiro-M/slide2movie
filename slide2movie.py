@@ -705,17 +705,18 @@ def hex_color(value: str) -> tuple[int, int, int]:
 # 実行
 # ──────────────────────────────────────────
 def main():
-    print('====== Slide to Movie ======')
-    print('                     v.0.0.5')
     args = doArgParse()
-    print(f'指定された引数: {args}')
-
+    
     # デバッグモードの場合、標準出力をファイルにも保存するためのクラス
     if args['debug']:
         import sys
         log_path = os.path.splitext(os.path.abspath(args['output']))[0] + "_debug.log"
         _tee = _Tee(sys.stdout, log_path)  # reconfigure もここで完結
         sys.stdout = _tee
+
+    print('====== Slide to Movie ======')
+    print('                     v.0.0.5')
+    print(f'指定された引数: {args}')
         
     pptx_to_video(
         pptx_path=args['file'],
