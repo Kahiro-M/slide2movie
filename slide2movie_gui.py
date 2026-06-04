@@ -4,11 +4,11 @@ import subprocess
 import sys
 import threading
 import os
-import importlib.util, sys as _sys
+import importlib.util, sys
 
 
 # -----------------------------------------------------------------------
-# 定数
+# 本体スクリプトのパス
 # -----------------------------------------------------------------------
 SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "slide2movie.py")
 
@@ -21,9 +21,13 @@ def _load_option_defs():
     spec = importlib.util.spec_from_file_location("slide2movie", SCRIPT_PATH)
     mod  = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    return mod.OPTION_DEFS
+    return mod.OPTION_DEFS, mod.load_ini, mod.save_ini, mod.CONFIG_DEFAULT
 
-OPTION_DEFS = _load_option_defs()
+# -----------------------------------------------------------------------
+# 定数
+# -----------------------------------------------------------------------
+OPTION_DEFS, load_ini, save_ini, CONFIG_DEFAULT = _load_option_defs()
+CONFIG_PATH = os.path.join(os.path.dirname(__file__), CONFIG_DEFAULT)
 
 # UTF-8 → CP932 → latin-1 の順でフォールバックデコード
 def _decode_auto(raw: bytes) -> str:
@@ -56,8 +60,11 @@ class Slide2MovieGUI(tk.Tk):
                 self._vars[name] = tk.IntVar(value=int(default) if default is not None else 0)
             else:
                 self._vars[name] = tk.StringVar(value=str(default) if default is not None else "")
+        # UI構築
         self._build_ui()
-        
+        # INIファイルから設定を読み込む
+        self._load_config()
+
     # -------------------------------------------------------------------
     # UI構築
     # -------------------------------------------------------------------
@@ -122,7 +129,44 @@ class Slide2MovieGUI(tk.Tk):
             font=("Courier", 9), height=12)
         self.log_area.pack(fill="both", expand=True)
 
-    # name に応じてダイアログ種別を切り替え
+    # config.ini が存在すれば読み込んで各ウィジェットの初期値に反映する
+    def _load_config(self):
+        ini = load_ini(CONFIG_PATH)
+        if not ini:
+            return
+
+        for opt in OPTION_DEFS:
+            name = opt["name"]
+            if name not in ini:
+                continue
+            value = ini[name]
+            var = self._vars[name]
+            try:
+                if isinstance(var, tk.BooleanVar):
+                    var.set(bool(value))
+                elif isinstance(var, tk.IntVar):
+                    var.set(int(value))
+                else:
+                    var.set(str(value) if value is not None else "")
+            except (ValueError, tk.TclError):
+                pass  # 型変換失敗時はデフォルト値のまま
+
+
+    # -------------------------------------------------------------------
+    # ファイル行ウィジェット（共通）
+    # -------------------------------------------------------------------
+    def _file_row(self, parent, label, var, cmd, row):
+        ttk.Label(parent, text=label).grid(
+            row=row, column=0, sticky="w", pady=3)
+        ttk.Entry(parent, textvariable=var, width=44).grid(
+            row=row, column=1, sticky="ew", padx=6)
+        ttk.Button(parent, text="参照…", command=cmd, width=7).grid(
+            row=row, column=2, padx=2)
+        parent.columnconfigure(1, weight=1)
+
+    # -------------------------------------------------------------------
+    # ファイルダイアログ
+    # -------------------------------------------------------------------
     def _browse_file(self, name: str):
         var = self._vars[name]
 
@@ -147,55 +191,14 @@ class Slide2MovieGUI(tk.Tk):
                 self._vars["output"].set(os.path.splitext(path)[0] + ".mp4")
 
     # -------------------------------------------------------------------
-    # ファイル行ウィジェット（共通）
-    # -------------------------------------------------------------------
-    def _file_row(self, parent, label, var, cmd, row):
-        ttk.Label(parent, text=label).grid(
-            row=row, column=0, sticky="w", pady=3)
-        ttk.Entry(parent, textvariable=var, width=44).grid(
-            row=row, column=1, sticky="ew", padx=6)
-        ttk.Button(parent, text="参照…", command=cmd, width=7).grid(
-            row=row, column=2, padx=2)
-        parent.columnconfigure(1, weight=1)
-
-    # -------------------------------------------------------------------
-    # ファイルダイアログ
-    # -------------------------------------------------------------------
-    def _browse_pptx(self):
-        path = filedialog.askopenfilename(
-            title="入力PPTXを選択",
-            filetypes=[("PowerPoint", "*.pptx *.ppt"), ("すべて", "*.*")])
-        if path:
-            self.var_file.set(path)
-            # 出力パスを自動補完（未入力の場合）
-            if not self.var_output.get():
-                base = os.path.splitext(path)[0]
-                self.var_output.set(base + ".mp4")
-
-    def _browse_output(self):
-        path = filedialog.asksaveasfilename(
-            title="出力MP4のパスを指定",
-            defaultextension=".mp4",
-            filetypes=[("MP4動画", "*.mp4"), ("すべて", "*.*")])
-        if path:
-            self.var_output.set(path)
-
-    def _browse_creditimg(self):
-        path = filedialog.askopenfilename(
-            title="クレジット画像を選択",
-            filetypes=[("画像", "*.png *.jpg *.jpeg"), ("すべて", "*.*")])
-        if path:
-            self.var_creditimg.set(path)
-
-    # -------------------------------------------------------------------
     # 実行
     # -------------------------------------------------------------------
     def _on_run(self):
         # バリデーション
-        if not self.var_file.get():
+        if not self._vars["file"].get():
             messagebox.showwarning("入力エラー", "入力PPTXを指定してください。")
             return
-        if not self.var_output.get():
+        if not self._vars["output"].get():
             messagebox.showwarning("入力エラー", "出力MP4のパスを指定してください。")
             return
 
@@ -225,7 +228,7 @@ class Slide2MovieGUI(tk.Tk):
             proc.wait()
 
             if proc.returncode == 0:
-                self._log(f"\n{'─'*60}\n✅ 完了しました。\n出力: {self.var_output.get()}\n")
+                self._log(f"\n{'─'*60}\n✅ 完了しました。\n出力: {self._vars['output'].get()}\n")
             else:
                 self._log(f"\n{'─'*60}\n❌ エラーで終了しました（終了コード: {proc.returncode}）\n")
 

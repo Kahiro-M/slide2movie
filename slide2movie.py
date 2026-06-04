@@ -806,13 +806,13 @@ OPTION_DEFS = [
     dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジットテキスト色（#FF6600のカラーコード）'),
     dict(name='debug',       type=bool, default=False,         required=False, store_true=True,  frame='その他',         help='デバッグモード'),
 ]
-
+CONFIG_DEFAULT = "config.ini"
 
 # OPTION_DEFSからargparseを生成
 def build_parser(desc=ARG_DESCRIPTION) -> argparse.ArgumentParser:
     import argparse
     parser = argparse.ArgumentParser(description=desc)
-    parser.add_argument('--config', default='config.ini', help='設定ファイルパス')
+    parser.add_argument('--config', default=CONFIG_DEFAULT, help='設定ファイルパス')
 
     for opt in OPTION_DEFS:
         if opt['store_true']:
