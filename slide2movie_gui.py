@@ -31,6 +31,7 @@ class Slide2MovieGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("slide2movie GUI")
+        self.iconbitmap(os.path.join(os.path.dirname(__file__), "icon.ico"))
         self.resizable(True, True)
         self.minsize(620, 700)
 
