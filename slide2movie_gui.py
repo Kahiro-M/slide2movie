@@ -4,30 +4,32 @@ import subprocess
 import sys
 import threading
 import os
-import importlib.util, sys
+
+# ──────────────
+# オプション定義
+# ──────────────
+from external_define import OPTION_DEFS, CONFIG_DEFAULT
 
 
 # -----------------------------------------------------------------------
 # 本体スクリプトのパス
 # -----------------------------------------------------------------------
-SCRIPT_PATH = os.path.join(os.path.dirname(__file__), "slide2movie.py")
+def _get_base_dir() -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return sys._MEIPASS          # PyInstaller実行時の一時展開フォルダ
+    return os.path.dirname(__file__) # 通常実行時
 
+SCRIPT_PATH = os.path.join(_get_base_dir(), "slide2movie.py")
 
 # -----------------------------------------------------------------------
 # モジュール
 # -----------------------------------------------------------------------
-# OPTION_DEFSをs本体から動的に読み込む
-def _load_option_defs():
-    spec = importlib.util.spec_from_file_location("slide2movie", SCRIPT_PATH)
-    mod  = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod.OPTION_DEFS, mod.load_ini, mod.save_ini, mod.CONFIG_DEFAULT
+from external_define import load_ini
 
 # -----------------------------------------------------------------------
 # 定数
 # -----------------------------------------------------------------------
-OPTION_DEFS, load_ini, save_ini, CONFIG_DEFAULT = _load_option_defs()
-CONFIG_PATH = os.path.join(os.path.dirname(__file__), CONFIG_DEFAULT)
+CONFIG_PATH = os.path.join(_get_base_dir(), CONFIG_DEFAULT)
 
 # UTF-8 → CP932 → latin-1 の順でフォールバックデコード
 def _decode_auto(raw: bytes) -> str:
@@ -45,7 +47,7 @@ class Slide2MovieGUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("slide2movie GUI")
-        self.iconbitmap(os.path.join(os.path.dirname(__file__), "icon.ico"))
+        self.iconbitmap(os.path.join(_get_base_dir(), "icon.ico"))
         self.resizable(True, True)
         self.minsize(620, 700)
 

@@ -1,2 +1,2 @@
 pyinstaller --onefile --icon=icon.ico slide2movie.py -n slide2movie
-pyinstaller --onefile --icon=icon.ico slide2movie_gui.py -n slide2movie_gui
+pyinstaller --onefile --noconsole --add-data "slide2movie.py;." --add-data "external_define.py;." --add-data "icon.ico;." --icon=icon.ico slide2movie_gui.py -n slide2movie_gui
