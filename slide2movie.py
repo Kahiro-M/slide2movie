@@ -772,7 +772,7 @@ def doArgParse() -> dict:
             parser.error(f'--{opt["name"]} が指定されていません（引数またはiniファイルで設定してください）')
 
     # iniファイルが存在しない場合は現在の設定値で生成する
-    if Path(config_path).exists():
+    if Path(config_path).exists()==False:
         save_ini(config_path, merged)
 
     return merged
