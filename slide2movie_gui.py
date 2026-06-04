@@ -63,51 +63,52 @@ class Slide2MovieGUI(tk.Tk):
     # -------------------------------------------------------------------
     def _build_ui(self):
         pad = {"padx": 10, "pady": 4}
-
-        frame_opts = ttk.LabelFrame(self, text="オプション設定", padding=8)
-        frame_opts.pack(fill="x", **pad)
-
         # ファイル参照が必要なキーワード
         FILE_KEYWORDS = ("file", "img", "image", "path", "output")
 
-        row = 0
+        # frame名の順序を保ちながらグループ化
+        from collections import OrderedDict
+        groups: OrderedDict[str, list] = OrderedDict()
         for opt in OPTION_DEFS:
-            name    = opt["name"]
-            label   = opt["help"] or name
-            var     = self._vars[name]
+            frame_name = opt.get("frame", "その他")
+            groups.setdefault(frame_name, []).append(opt)
 
-            if opt["store_true"] or opt["type"] == bool:
-                # チェックボックス
-                ttk.Checkbutton(frame_opts, text=label, variable=var).grid(
-                    row=row, column=0, columnspan=3, sticky="w", pady=3, padx=4)
+        # グループごとに LabelFrame を生成
+        for frame_name, opts in groups.items():
+            lf = ttk.LabelFrame(self, text=frame_name, padding=8)
+            lf.pack(fill="x", **pad)
 
-            elif opt["type"] == int:
-                # スピンボックス
-                ttk.Label(frame_opts, text=label).grid(
-                    row=row, column=0, sticky="w", pady=3)
-                ttk.Spinbox(frame_opts, from_=0, to=99999, increment=1,
-                            textvariable=var, width=10).grid(
-                    row=row, column=1, sticky="w", padx=6)
+            row = 0
+            for opt in opts:
+                name  = opt["name"]
+                label = opt["help"] or name
+                var   = self._vars[name]
 
-            elif any(kw in name.lower() for kw in FILE_KEYWORDS):
-                # ファイルパス Entry + 参照ボタン
-                ttk.Label(frame_opts, text=label).grid(
-                    row=row, column=0, sticky="w", pady=3)
-                ttk.Entry(frame_opts, textvariable=var, width=40).grid(
-                    row=row, column=1, sticky="ew", padx=6)
-                ttk.Button(frame_opts, text="参照…", width=7,
-                        command=lambda n=name: self._browse_file(n)).grid(
-                    row=row, column=2, padx=2)
-                frame_opts.columnconfigure(1, weight=1)
+                if opt["store_true"] or opt["type"] == bool:
+                    ttk.Checkbutton(lf, text=label, variable=var).grid(
+                        row=row, column=0, columnspan=3, sticky="w", pady=3, padx=4)
 
-            else:
-                # 通常 Entry
-                ttk.Label(frame_opts, text=label).grid(
-                    row=row, column=0, sticky="w", pady=3)
-                ttk.Entry(frame_opts, textvariable=var, width=20).grid(
-                    row=row, column=1, sticky="w", padx=6)
+                elif opt["type"] == int:
+                    ttk.Label(lf, text=label).grid(row=row, column=0, sticky="w", pady=3)
+                    ttk.Spinbox(lf, from_=0, to=99999, increment=1,
+                                textvariable=var, width=10).grid(
+                        row=row, column=1, sticky="w", padx=6)
 
-            row += 1
+                elif any(kw in name.lower() for kw in FILE_KEYWORDS):
+                    ttk.Label(lf, text=label).grid(row=row, column=0, sticky="w", pady=3)
+                    ttk.Entry(lf, textvariable=var, width=40).grid(
+                        row=row, column=1, sticky="ew", padx=6)
+                    ttk.Button(lf, text="参照…", width=7,
+                            command=lambda n=name: self._browse_file(n)).grid(
+                        row=row, column=2, padx=2)
+                    lf.columnconfigure(1, weight=1)
+
+                else:
+                    ttk.Label(lf, text=label).grid(row=row, column=0, sticky="w", pady=3)
+                    ttk.Entry(lf, textvariable=var, width=20).grid(
+                        row=row, column=1, sticky="w", padx=6)
+
+                row += 1
 
         # 実行ボタン
         self.btn_run = ttk.Button(self, text="▶ 実行", command=self._on_run)
