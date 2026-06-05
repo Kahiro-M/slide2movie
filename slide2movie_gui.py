@@ -269,6 +269,8 @@ class Slide2MovieGUI(tk.Tk):
             if opt["store_true"] or opt["type"] == bool:
                 if var.get():
                     cmd.append(f"--{name}")
+                else:
+                    cmd.append(f"--no-{name}")
             else:
                 value = var.get()
                 # 空・None・デフォルト値でも渡す（required対応）

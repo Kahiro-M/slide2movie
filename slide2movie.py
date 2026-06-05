@@ -726,7 +726,7 @@ def main():
         sys.stdout = _tee
 
     print('====== Slide to Movie ======')
-    print('                     v.0.0.7')
+    print('                     v.0.0.8')
     print(f'指定された引数: {args}')
         
     pptx_to_video(
@@ -808,7 +808,7 @@ def build_parser(desc=ARG_DESCRIPTION) -> argparse.ArgumentParser:
 
     for opt in OPTION_DEFS:
         if opt['store_true']:
-            parser.add_argument(f'--{opt["name"]}', action='store_true', default=None, help=opt['help'])
+            parser.add_argument(f'--{opt["name"]}', action=argparse.BooleanOptionalAction, default=None, help=opt['help'])
         else:
             parser.add_argument(f'--{opt["name"]}', type=opt['type'], default=None, help=opt['help'])
 
