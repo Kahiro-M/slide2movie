@@ -1,9 +1,11 @@
 [settings]
-file       = /path/to/input.pptx
-output     = /path/to/output.mp4
-dpi        = 150
-lang       = ja
-voicevox   = false
-voicevoxid = 3
-creditimg  = /path/to/credit.png
-debug      = false
+file        = /path/to/input.pptx
+output      = /path/to/output.mp4
+dpi         = 150
+lang        = ja
+voicevox    = false
+voicevoxid  = 3
+creditimg   = /path/to/credit.png
+creditbg    = #000000
+creditcolor = #ffffff
+debug       = false
