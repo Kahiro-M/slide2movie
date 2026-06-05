@@ -16,8 +16,8 @@ OPTION_DEFS = [
     dict(name='voicevox',    type=bool, default=False,         required=False, store_true=True,  frame='VOICEVOX設定',   help='VOICEVOX音声モード'),
     dict(name='voicevoxid',  type=int,  default=3,             required=False, store_true=False, frame='VOICEVOX設定',   help='VOICEVOX話者ID'),
     dict(name='creditimg',   type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット画像パス'),
-    dict(name='creditbg',    type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット背景色（#FF6600のカラーコード）'),
-    dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジットテキスト色（#FF6600のカラーコード）'),
+    dict(name='creditbg',    type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット背景色（未指定の場合 #FFFFFF）'),
+    dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジットテキスト色（未指定の場合 #FF6600）'),
     dict(name='debug',       type=bool, default=False,         required=False, store_true=True,  frame='その他',         help='デバッグモード'),
 ]
 CONFIG_DEFAULT = "config.ini"
