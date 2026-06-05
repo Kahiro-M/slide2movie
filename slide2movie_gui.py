@@ -11,25 +11,31 @@ import os
 from external_define import OPTION_DEFS, CONFIG_DEFAULT
 
 
-# -----------------------------------------------------------------------
-# 本体スクリプトのパス
-# -----------------------------------------------------------------------
-def _get_base_dir() -> str:
-    if hasattr(sys, "_MEIPASS"):
-        return sys._MEIPASS          # PyInstaller実行時の一時展開フォルダ
-    return os.path.dirname(__file__) # 通常実行時
-
-SCRIPT_PATH = os.path.join(_get_base_dir(), "slide2movie.py")
 
 # -----------------------------------------------------------------------
 # モジュール
 # -----------------------------------------------------------------------
 from external_define import load_ini
 
+# PyInstaller実行時と通常実行時の両方でリソースにアクセスできるようにする関数
+def _get_base_dir() -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return sys._MEIPASS          # PyInstaller実行時の一時展開フォルダ
+    return os.path.dirname(__file__) # 通常実行時
+
+# ランチャー（slide2movie_gui）と同階層のディレクトリを返す
+def _get_launcher_dir() -> str:
+    if hasattr(sys, "_MEIPASS"):
+        # PyInstaller実行時 → .exe のあるフォルダ
+        return os.path.dirname(sys.executable)
+    # 通常実行時 → スクリプトのあるフォルダ
+    return os.path.dirname(os.path.abspath(__file__))
+SCRIPT_PATH = os.path.join(_get_launcher_dir(), "slide2movie.py")
+
 # -----------------------------------------------------------------------
 # 定数
 # -----------------------------------------------------------------------
-CONFIG_PATH = os.path.join(_get_base_dir(), CONFIG_DEFAULT)
+CONFIG_PATH = os.path.join(_get_launcher_dir(), CONFIG_DEFAULT)
 
 # UTF-8 → CP932 → latin-1 の順でフォールバックデコード
 def _decode_auto(raw: bytes) -> str:
@@ -244,7 +250,17 @@ class Slide2MovieGUI(tk.Tk):
 
     # コマンド構築
     def _build_command(self) -> list[str]:
-        cmd = [sys.executable, SCRIPT_PATH]
+        base_dir = _get_launcher_dir()
+        # slide2movie.exe → slide2movie.py の順で探す
+        exe_path = os.path.join(base_dir, "slide2movie.exe")
+        py_path  = os.path.join(base_dir, "slide2movie.py")
+
+        if os.path.exists(exe_path):
+            cmd = [exe_path]
+        elif os.path.exists(py_path):
+            cmd = [sys.executable, py_path]
+        else:
+            raise FileNotFoundError(f"slide2movie が見つかりません: {base_dir}")
 
         for opt in OPTION_DEFS:
             name = opt["name"]
