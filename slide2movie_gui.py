@@ -4,6 +4,7 @@ import subprocess
 import sys
 import threading
 import os
+import platform
 
 # ──────────────
 # オプション定義
@@ -222,13 +223,18 @@ class Slide2MovieGUI(tk.Tk):
         cmd = self._build_command()
         self._log(f"コマンド: {' '.join(cmd)}\n{'─'*60}\n")
 
+        extra = {}
+        if platform.system() == "Windows":
+            extra["creationflags"] = subprocess.CREATE_NO_WINDOW
+        
         try:
             proc = subprocess.Popen(
                 cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stdout=subprocess.PIPE, # 標準出力をパイプで受け取る
+                stderr=subprocess.STDOUT, # 標準エラーも標準出力にまとめる
                 bufsize=0, # バイナリ受け取り
-                env={**os.environ, "PYTHONUNBUFFERED": "1"}
+                env={**os.environ, "PYTHONUNBUFFERED": "1"}, # バッファリング無効化
+                # **extra, # Windowsでコンソールウィンドウを表示しないオプション
             )
             for raw_line in proc.stdout:
                 line = _decode_auto(raw_line)

@@ -15,8 +15,13 @@ class _Tee:
     def __init__(self, stream, filepath: str):
         # 元ストリームを行バッファリングに設定してからラップ
         if hasattr(stream, 'reconfigure'):
-            # 標準出力を行単位でフラッシュする設定（リアルタイムログ出力のため）
-            stream.reconfigure(line_buffering=True)
+            # バイナリモード（rb/wb/ab）でなければ行バッファリングを設定
+            mode = getattr(stream, 'mode', 'w')
+            if mode not in ('rb', 'wb', 'ab'):
+                try:
+                    stream.reconfigure(line_buffering=True)
+                except Exception:
+                    pass
         self._stream = stream
         self._file = open(filepath, "w", encoding="utf-8", buffering=1)
 
@@ -726,7 +731,7 @@ def main():
         sys.stdout = _tee
 
     print('====== Slide to Movie ======')
-    print('                     v.0.0.8')
+    print('                     v.0.0.9')
     print(f'指定された引数: {args}')
         
     pptx_to_video(
