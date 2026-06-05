@@ -438,7 +438,7 @@ def generate_credit_slide(
     font = _find_font(font_size)
 
     # 画像を中央配置
-    if image_path:
+    if image_path and os.path.exists(image_path):
         overlay = Image.open(image_path).convert("RGBA")
         ow, oh = overlay.size
         max_w, max_h = image_max_size
@@ -664,14 +664,17 @@ def pptx_to_video(
     else:
         quality_value = 5  # デフォルト品質
 
-    credit_png = generate_credit_slide(
-        credit_text=credit_text,
-        output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
-        image_path=creditimg_path,
-        bg_color=creditbg_value,
-        text_color=creditcolor_value,
-    )
-    png_paths.append(credit_png)
+    if credit_text != '' or (creditimg_path and os.path.exists(creditimg_path)):
+        credit_png = generate_credit_slide(
+            credit_text=credit_text,
+            output_path=os.path.join(os.path.abspath(png_dir), "slide_credit.png"),
+            image_path=creditimg_path,
+            bg_color=creditbg_value,
+            text_color=creditcolor_value,
+        )
+        png_paths.append(credit_png)
+    else:
+        print("クレジットスライドは生成されませんでした（テキスト・画像ともに指定なし）。")
 
     print("\n=== STEP 2: 音声生成 ===")
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
@@ -723,7 +726,7 @@ def main():
         sys.stdout = _tee
 
     print('====== Slide to Movie ======')
-    print('                     v.0.0.6')
+    print('                     v.0.0.7')
     print(f'指定された引数: {args}')
         
     pptx_to_video(
