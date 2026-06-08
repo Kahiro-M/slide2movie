@@ -53,7 +53,7 @@ def _decode_auto(raw: bytes) -> str:
 class Slide2MovieGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("slide2movie GUI")
+        self.title("slide2movie GUI   v.0.0.10")
         self.iconbitmap(os.path.join(_get_base_dir(), "icon.ico"))
         self.resizable(True, True)
         self.minsize(620, 700)
@@ -234,7 +234,7 @@ class Slide2MovieGUI(tk.Tk):
                 stderr=subprocess.STDOUT, # 標準エラーも標準出力にまとめる
                 bufsize=0, # バイナリ受け取り
                 env={**os.environ, "PYTHONUNBUFFERED": "1"}, # バッファリング無効化
-                # **extra, # Windowsでコンソールウィンドウを表示しないオプション
+                **extra, # Windowsでコンソールウィンドウを表示しないオプション
             )
             for raw_line in proc.stdout:
                 line = _decode_auto(raw_line)
