@@ -110,7 +110,7 @@ def pptx_to_pngs(pptx_path, output_dir="slides_png", dpi=150):
 
         output_path = os.path.join(output_dir, f"slide_{i+1:03d}.png")
         img.save(output_path, "PNG", dpi=(dpi, dpi))
-        print(f"PNG保存: {output_path}")
+        print(f"PNG保存: {output_path}", flush=True)
         png_paths.append(output_path)
 
     return png_paths
@@ -280,14 +280,14 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
 
         if notes_text:
             text = notes_text
-            print(f"スライド {i+1}: ノートからテキスト取得")
+            print(f"スライド {i+1}: ノートからテキスト取得", flush=True)
         else:
             # スライド上の全テキストを結合して取得
             text = " ".join(
                 shape.text for shape in slide.shapes
                 if hasattr(shape, "text")
             ).strip()
-            print(f"スライド {i+1}: スライド本文からテキスト取得")
+            print(f"スライド {i+1}: スライド本文からテキスト取得", flush=True)
 
 
         if text:
@@ -313,17 +313,17 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
                     audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.wav")
                     with open(audio_path, "wb") as f:
                         f.write(audio_bytes)
-                    print(f"音声保存（VOICEVOX）: {audio_path}")
+                    print(f"音声保存（VOICEVOX）: {audio_path}", flush=True)
                     audio_paths.append(audio_path)
 
                 except Exception as e:
-                    print(f"スライド {i+1}: VOICEVOX音声生成失敗 ({e}) → Noneとして処理")
+                    print(f"スライド {i+1}: VOICEVOX音声生成失敗 ({e}) → Noneとして処理", flush=True)
                     audio_paths.append(None)
             else:
                 tts = gTTS(text=text, lang=lang, slow=False)
                 audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.mp3")
                 tts.save(audio_path)
-                print(f"音声保存: {audio_path}")
+                print(f"音声保存: {audio_path}", flush=True)
                 audio_paths.append(audio_path)
         else:
             audio_paths.append(None)
@@ -466,7 +466,7 @@ def generate_credit_slide(
 
     draw.text((text_x, text_y), credit_text, fill=text_color, font=font)
     img.save(output_path, "PNG")
-    print(f"クレジットスライド生成: {output_path}")
+    print(f"クレジットスライド生成: {output_path}", flush=True)
     return output_path
 
 # ──────────────────────────────────────────
@@ -488,7 +488,7 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
             combined += AudioSegment.silent(duration=2000)
 
     combined.export(output_path, format="wav")
-    print(f"音声結合完了: {output_path}")
+    print(f"音声結合完了: {output_path}", flush=True)
     return output_path
 
 
@@ -518,7 +518,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         else:
             durations.append(2.0)  # 空スライドは2秒
     total_duration = sum(durations)  # durationリストの合計
-    print(f"合計再生時間: {total_duration:.3f} 秒")
+    print(f"合計再生時間: {total_duration:.3f} 秒", flush=True)
 
     # concat demuxerファイルを生成（スライドごとに個別duration）
     concat_file = "concat_list.txt"
@@ -533,7 +533,7 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
     combined_audio_path = "combined_audio.wav"
     combined_audio = combine_audio(audio_paths, output_path=combined_audio_path)
 
-    print(f"結合された音声の長さ: {len(AudioSegment.from_wav(combined_audio_path)) / 1000.0} 秒")
+    print(f"結合された音声の長さ: {len(AudioSegment.from_wav(combined_audio_path)) / 1000.0} 秒", flush=True)
 
     cmd = [
         ffmpeg_path,                # 実行するffmpegのパス（スクリプトと同階層のffmpeg.exe）
@@ -571,15 +571,15 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
     if proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
 
-    print(f"動画生成完了: {output_mp4}")
+    print(f"動画生成完了: {output_mp4}", flush=True)
 
     # デバッグモードのみ中間ファイルを保持
     if not debug:
         os.remove(concat_file)
         os.remove(combined_audio)
-        print("中間ファイルを削除しました。")
+        print("中間ファイルを削除しました。", flush=True)
     else:
-        print(f"[DEBUG] 中間ファイルを保持しています: {concat_file}, {combined_audio}")
+        print(f"[DEBUG] 中間ファイルを保持しています: {concat_file}, {combined_audio}", flush=True)
 
 
 # ──────────────────────────────────────────
@@ -622,17 +622,17 @@ def pptx_to_video(
     ENV_USE_LIBREOFFICE = is_libreoffice_available()  # LibreOffice
     ENV_USE_VOICEVOX    = is_voicevox_running()        # VOICEVOX APIサーバー
 
-    print(f"[ENV] OS={ENV_OS}, PowerPoint={ENV_USE_PPT}, LibreOffice={ENV_USE_LIBREOFFICE}, VOICEVOX={ENV_USE_VOICEVOX}")
+    print(f"[ENV] OS={ENV_OS}, PowerPoint={ENV_USE_PPT}, LibreOffice={ENV_USE_LIBREOFFICE}, VOICEVOX={ENV_USE_VOICEVOX}", flush=True)
 
-    print("=== STEP 1: PNG変換 ===")
+    print("=== STEP 1: PNG変換 ===", flush=True)
     if ENV_USE_PPT:
-        print("PowerPoint COMを使用してPNG変換します。")
+        print("PowerPoint COMを使用してPNG変換します。", flush=True)
         png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
     elif ENV_USE_LIBREOFFICE:
-        print("LibreOfficeを使用してPNG変換します。")
+        print("LibreOfficeを使用してPNG変換します。", flush=True)
         png_paths = pptx_to_pngs_libreoffice(pptx_path, output_dir=png_dir)
     else:
-        print("PowerPoint・LibreOfficeが見つかりません。python-pptx + Pillowでフォールバック変換します。")
+        print("PowerPoint・LibreOfficeが見つかりません。python-pptx + Pillowでフォールバック変換します。", flush=True)
         png_paths = pptx_to_pngs(pptx_path, output_dir=png_dir, dpi=dpi)
 
     # クレジットスライドを末尾に追加
@@ -679,9 +679,9 @@ def pptx_to_video(
         )
         png_paths.append(credit_png)
     else:
-        print("クレジットスライドは生成されませんでした（テキスト・画像ともに指定なし）。")
+        print("クレジットスライドは生成されませんでした（テキスト・画像ともに指定なし）。", flush=True)
 
-    print("\n=== STEP 2: 音声生成 ===")
+    print("\n=== STEP 2: 音声生成 ===", flush=True)
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
 
     # クレジット用無音を末尾に追加
@@ -689,7 +689,7 @@ def pptx_to_video(
         silence_path = os.path.join(os.path.abspath(audio_dir), "audio_credit.wav")
         audio_paths.append(generate_silence_wav(silence_path, duration_sec=1.0))
 
-    print("\n=== STEP 3: 動画合成 ===")
+    print("\n=== STEP 3: 動画合成 ===", flush=True)
     create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug, quality=quality_value)
 
     # 各スライドの音声ファイルを削除（デバッグ時は保持）
@@ -697,16 +697,16 @@ def pptx_to_video(
         for p in png_paths:
             if p and os.path.exists(p):
                 os.remove(p)
-        print("画像ファイルを削除しました。")
+        print("画像ファイルを削除しました。", flush=True)
         for p in audio_paths:
             if p and os.path.exists(p):
                 os.remove(p)
-        print("音声ファイルを削除しました。")
+        print("音声ファイルを削除しました。", flush=True)
     else:
-        print("[DEBUG] 画像ファイルを保持しています。")
-        print("[DEBUG] 音声ファイルを保持しています。")
+        print("[DEBUG] 画像ファイルを保持しています。", flush=True)
+        print("[DEBUG] 音声ファイルを保持しています。", flush=True)
 
-    print(f"\n✅ 完了: {output_mp4}")
+    print(f"\n✅ 完了: {output_mp4}", flush=True)
 
 # #RRGGBB 形式の文字列を (R, G, B) タプルに変換
 def hex_color(value: str) -> tuple[int, int, int]:
@@ -730,9 +730,9 @@ def main():
         _tee = _Tee(sys.stdout, log_path)  # reconfigure もここで完結
         sys.stdout = _tee
 
-    print('====== Slide to Movie ======')
-    print('                     v.0.0.9')
-    print(f'指定された引数: {args}')
+    print('====== Slide to Movie ======', flush=True)
+    print('                     v.0.0.10', flush=True)
+    print(f'指定された引数: {args}', flush=True)
         
     pptx_to_video(
         pptx_path=args['file'],
