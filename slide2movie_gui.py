@@ -53,7 +53,7 @@ def _decode_auto(raw: bytes) -> str:
 class Slide2MovieGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("slide2movie GUI   v.0.0.10")
+        self.title("slide2movie GUI   v.0.0.11")
         self.iconbitmap(os.path.join(_get_base_dir(), "icon.ico"))
         self.resizable(True, True)
         self.minsize(620, 700)

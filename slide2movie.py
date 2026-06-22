@@ -291,6 +291,11 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
 
 
         if text:
+            audio_text_path = Path(audio_dir) / f"audio_{i+1:03d}.txt"
+            with open(audio_text_path, "w", encoding="utf-8") as f:
+                f.write(text)
+                print(f"音声テキスト保存: {audio_text_path}", flush=True)
+
             # voicevoxがローカルで起動しているか確認
             if voicevox and is_voicevox_running():
                 import requests
@@ -731,7 +736,7 @@ def main():
         sys.stdout = _tee
 
     print('====== Slide to Movie ======', flush=True)
-    print('                     v.0.0.10', flush=True)
+    print('                     v.0.0.11', flush=True)
     print(f'指定された引数: {args}', flush=True)
         
     pptx_to_video(
