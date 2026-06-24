@@ -739,7 +739,7 @@ def main():
         sys.stdout = _tee
 
     print('====== Slide to Movie ======', flush=True)
-    print('                     v.0.0.11', flush=True)
+    print('                     v.0.0.12', flush=True)
     print(f'指定された引数: {args}', flush=True)
         
     pptx_to_video(
