@@ -123,6 +123,7 @@ def pptx_to_pngs(pptx_path, output_dir="slides_png", dpi=150):
 #     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
 def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
     import win32com.client
+    import re
 
     # 出力ディレクトリを削除して再作成（初期化）
     if os.path.exists(output_dir):
@@ -146,7 +147,7 @@ def pptx_to_pngs_com(pptx_path, output_dir="slides_png"):
     # スライド順にソートしてパスリストを構築
     png_files = sorted(
         Path(abs_out).glob("*.PNG"),
-        key=lambda p: p.stem  # "スライド1", "スライド2" ... の順
+        key=lambda p: int(re.search(r"\d+", p.stem).group())  # "スライド1", "スライド2" ... の順
     )
 
     # slide_001.png 形式にリネーム
@@ -558,6 +559,8 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         "-map", "1:a:0",            # 入力②（combined_audio）の音声ストリーム0番を出力に使用
         output_mp4                  # 出力ファイルパス
     ]
+
+    print(f"FFmpegコマンド: {' '.join(cmd)}", flush=True)
 
     # FFmpegの出力をリアルタイムで表示しながら実行
     proc = subprocess.Popen(
