@@ -726,6 +726,11 @@ def pptx_to_video(
 
     print("\n=== STEP 3: 動画合成 ===", flush=True)
     create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug, quality=quality_value, dbg_dir_path=dbg_dir_path)
+    if debug:
+        print('--- デバッグモード', flush=True)
+        # デバッグ用に音声フォルダをコピー
+        shutil.copy2(output_mp4, dbg_dir_path)
+        print(f'  - {output_mp4} を {dbg_dir_path} にコピーしました。', flush=True)
 
     # 各スライドの音声ファイルを削除（デバッグ時は保持）
     if not debug:
