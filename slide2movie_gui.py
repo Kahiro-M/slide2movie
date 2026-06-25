@@ -9,7 +9,7 @@ import platform
 # ──────────────
 # オプション定義
 # ──────────────
-from external_define import OPTION_DEFS, CONFIG_DEFAULT
+from external_define import OPTION_DEFS, CONFIG_DEFAULT, COMMON_TEXT
 
 
 
@@ -53,7 +53,7 @@ def _decode_auto(raw: bytes) -> str:
 class Slide2MovieGUI(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("slide2movie GUI   v.0.0.12")
+        self.title(f"{COMMON_TEXT['PROGRAM_NAME']} GUI   {COMMON_TEXT['VERSION_NUMBER']}")
         self.iconbitmap(os.path.join(_get_base_dir(), "icon.ico"))
         self.resizable(True, True)
         self.minsize(620, 700)

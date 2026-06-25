@@ -769,8 +769,8 @@ def main():
     else:
         dbg_dir_path = None
 
-    print('====== Slide to Movie ======', flush=True)
-    print('                     v.0.0.12', flush=True)
+    print(f"====== {COMMON_TEXT['PROGRAM_NAME']} ======", flush=True)
+    print(f"       {' '*len(COMMON_TEXT['PROGRAM_NAME'])}{COMMON_TEXT['VERSION_NUMBER']}", flush=True)
     print(f'指定された引数: {args}', flush=True)
 
     if args['debug']:
@@ -850,7 +850,7 @@ def doArgParse() -> dict:
 # ──────────────
 # オプション定義
 # ──────────────
-from external_define import OPTION_DEFS, ARG_DESCRIPTION, CONFIG_DEFAULT
+from external_define import OPTION_DEFS, ARG_DESCRIPTION, CONFIG_DEFAULT, COMMON_TEXT
 
 # ──────────────
 # INIファイルの読み書き関数

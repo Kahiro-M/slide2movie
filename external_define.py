@@ -23,6 +23,14 @@ OPTION_DEFS = [
 CONFIG_DEFAULT = "config.ini"
 
 # ──────────────
+# 共通テキスト
+# ──────────────
+COMMON_TEXT = {
+    'PROGRAM_NAME'   : 'Slide to Movie',
+    'VERSION_NUMBER' : 'v.0.0.13',
+}
+
+# ──────────────
 # iniファイルの読み書き関数
 # ──────────────
 # OPTION_DEFSの型定義に従ってiniファイルを読み込む
