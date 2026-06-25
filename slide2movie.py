@@ -6,6 +6,7 @@ from pathlib import Path
 import shutil
 import argparse
 import sys
+from mkdir_datetime import mkdir_dt,get_today_date,get_now_time
 
 # 標準出力をUTF-8に再設定（Windows環境での文字化け対策）
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -509,7 +510,7 @@ def combine_audio(audio_paths, output_path="combined_audio.wav"):
 #     output_mp4 (str): 出力MP4ファイルパス
 #     debug (bool): デバッグモード
 #     quality (int): 動画品質（1-31、値が小さいほど高品質）
-def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=False, quality=5):
+def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=False, quality=5, dbg_dir_path=None):
     import subprocess
     # FFmpegのパスを取得（同ディレクトリのffmpeg.exeを想定）
     _BASE_DIR = Path(__file__).parent
@@ -535,9 +536,21 @@ def create_video_ffmpeg(png_paths, audio_paths, output_mp4="output.mp4", debug=F
         # 最後のフレームを明示（FFmpegのconcat demuxer仕様）
         f.write(f"file '{os.path.abspath(png_paths[-1])}'\n")
 
+    if debug:
+        print('--- デバッグモード', flush=True)
+        # デバッグ用にconcat demuxerファイルをコピー
+        shutil.copy2(concat_file, dbg_dir_path)
+        print(f'  - {concat_file} を {dbg_dir_path} にコピーしました。', flush=True)
+
     # 音声を結合してWAVに出力
     combined_audio_path = "combined_audio.wav"
     combined_audio = combine_audio(audio_paths, output_path=combined_audio_path)
+
+    if debug:
+        print('--- デバッグモード', flush=True)
+        # デバッグ用に音声をコピー
+        shutil.copy2(combined_audio, dbg_dir_path)
+        print(f'  - {combined_audio} を {dbg_dir_path} にコピーしました。', flush=True)
 
     print(f"結合された音声の長さ: {len(AudioSegment.from_wav(combined_audio_path)) / 1000.0} 秒", flush=True)
 
@@ -621,6 +634,7 @@ def pptx_to_video(
     creditbg=None,
     creditcolor=None,
     debug=False,
+    dbg_dir_path=None,
 ):
 
     # ── 環境判定（最初に1回だけ実施） ──────────────────────
@@ -689,6 +703,13 @@ def pptx_to_video(
     else:
         print("クレジットスライドは生成されませんでした（テキスト・画像ともに指定なし）。", flush=True)
 
+    if debug:
+        print('--- デバッグモード', flush=True)
+        # デバッグ用にPNGフォルダをコピー
+        png_dir_path = Path(png_paths[0]).parent
+        shutil.copytree(png_dir_path, dbg_dir_path / 'slides_png', dirs_exist_ok=True)
+        print(f'  - {png_dir_path} を {dbg_dir_path} にコピーしました。', flush=True)
+
     print("\n=== STEP 2: 音声生成 ===", flush=True)
     audio_paths = generate_audio_files(pptx_path, audio_dir=audio_dir, lang=lang, voicevox=voicevox, voicevoxid=voicevoxid)
 
@@ -696,9 +717,15 @@ def pptx_to_video(
     if voicevox and is_voicevox_running():
         silence_path = os.path.join(os.path.abspath(audio_dir), "audio_credit.wav")
         audio_paths.append(generate_silence_wav(silence_path, duration_sec=1.0))
+    if debug:
+        print('--- デバッグモード', flush=True)
+        # デバッグ用に音声フォルダをコピー
+        audio_dir_path = Path(audio_paths[0]).parent
+        shutil.copytree(audio_dir_path, dbg_dir_path / 'slides_audio', dirs_exist_ok=True)
+        print(f'  - {audio_dir_path} を {dbg_dir_path} にコピーしました。', flush=True)
 
     print("\n=== STEP 3: 動画合成 ===", flush=True)
-    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug, quality=quality_value)
+    create_video_ffmpeg(png_paths, audio_paths, output_mp4=output_mp4, debug=debug, quality=quality_value, dbg_dir_path=dbg_dir_path)
 
     # 各スライドの音声ファイルを削除（デバッグ時は保持）
     if not debug:
@@ -734,14 +761,30 @@ def main():
     # デバッグモードの場合、標準出力をファイルにも保存するためのクラス
     if args['debug']:
         import sys
-        log_path = os.path.splitext(os.path.abspath(args['output']))[0] + "_debug.log"
+        dbg_dir_path = Path(mkdir_dt())  # デバッグ用にフォルダ作成
+        log_path = dbg_dir_path / (Path(args['output']).stem + "_debug.log")
         _tee = _Tee(sys.stdout, log_path)  # reconfigure もここで完結
         sys.stdout = _tee
+        print(f'デバッグモードが有効です。 {dbg_dir_path} に保存されます。', flush=True)
+    else:
+        dbg_dir_path = None
 
     print('====== Slide to Movie ======', flush=True)
     print('                     v.0.0.12', flush=True)
     print(f'指定された引数: {args}', flush=True)
-        
+
+    if args['debug']:
+        print('--- デバッグモード', flush=True)
+        save_ini(dbg_dir_path / 'config.ini', args)  # デバッグ用に現在の設定値をiniとして保存
+        for key, value in args.items():
+            if isinstance(value, str):
+                if os.path.exists(value):
+                    # デバッグ用にファイルをコピー
+                    import shutil
+                    dest_path = dbg_dir_path / os.path.basename(value)
+                    shutil.copy2(value, dest_path)
+                    print(f'  - {key}: {value} を {dest_path} にコピーしました。', flush=True)
+
     pptx_to_video(
         pptx_path=args['file'],
         output_mp4=args['output'],
@@ -754,6 +797,7 @@ def main():
         creditbg=args['creditbg'],
         creditcolor=args['creditcolor'],
         debug=args['debug'],
+        dbg_dir_path=dbg_dir_path,
     )
 
 # 相対パス取得
