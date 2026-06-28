@@ -42,7 +42,12 @@ class _Tee:
         return getattr(self._stream, name)
     
 # スクリプトと同階層のffmpegを使用
-_BASE_DIR = Path(__file__).parent
+def _get_slide2movie_base() -> str:
+    if hasattr(sys, "_MEIPASS"):
+        return sys._MEIPASS
+    return str(Path(__file__).parent)
+
+_BASE_DIR = Path(_get_slide2movie_base())
 
 # ffmpeg / ffprobe のパスを解決する（クロスプラットフォーム対応）
 def find_ffmpeg(name: str) -> str:

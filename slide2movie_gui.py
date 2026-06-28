@@ -5,6 +5,7 @@ import sys
 import threading
 import os
 import platform
+import sys
 
 # ──────────────
 # オプション定義
@@ -12,11 +13,10 @@ import platform
 from external_define import OPTION_DEFS, CONFIG_DEFAULT, COMMON_TEXT
 
 
-
 # -----------------------------------------------------------------------
 # モジュール
 # -----------------------------------------------------------------------
-from external_define import load_ini
+from external_define import load_ini, save_ini
 
 # PyInstaller実行時と通常実行時の両方でリソースにアクセスできるようにする関数
 def _get_base_dir() -> str:
@@ -46,6 +46,27 @@ def _decode_auto(raw: bytes) -> str:
         except (UnicodeDecodeError, LookupError):
             continue
     return raw.decode("utf-8", errors="replace")
+
+# -----------------------------------------------------------------------
+# print() の出力を GUI ログに転送するラッパー
+# -----------------------------------------------------------------------
+class _GuiWriter:
+    def __init__(self, log_fn, file_path=None):
+        self._log = log_fn
+        self._file = open(file_path, "w", encoding="utf-8", buffering=1) if file_path else None
+    def write(self, text):
+        if text:
+            self._log(text)
+            if self._file:
+                self._file.write(text)
+    def flush(self):
+        if self._file:
+            self._file.flush()
+    def close(self):
+        if self._file:
+            self._file.close()
+    def __getattr__(self, name):
+        return getattr(sys.__stdout__, name)
 
 # -----------------------------------------------------------------------
 # GUI本体
@@ -220,70 +241,65 @@ class Slide2MovieGUI(tk.Tk):
         thread.start()
 
     def _run_script(self):
-        cmd = self._build_command()
-        self._log(f"コマンド: {' '.join(cmd)}\n{'─'*60}\n")
+        from slide2movie import pptx_to_video
+        from mkdir_datetime import mkdir_dt,get_today_date,get_now_time
+        from pathlib import Path
+        import sys
 
-        extra = {}
-        if platform.system() == "Windows":
-            extra["creationflags"] = subprocess.CREATE_NO_WINDOW
-        
+        # 引数整理
+        args = self._vars
+        args_val = {key: var.get() for key, var in args.items()}
+        print(f'指定された引数: {args}', flush=True)
+
+        if args['debug'].get():
+            dbg_dir_path = Path(mkdir_dt())  # デバッグ用にフォルダ作成
+            log_path = dbg_dir_path / (Path(args['output'].get()).stem + "_debug.log")
+
+        # ラッパー差し替え前の標準出力を退避
+        _orig_stdout = sys.stdout
+        sys.stdout = _GuiWriter(self._log,file_path=log_path)
+
         try:
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE, # 標準出力をパイプで受け取る
-                stderr=subprocess.STDOUT, # 標準エラーも標準出力にまとめる
-                bufsize=0, # バイナリ受け取り
-                env={**os.environ, "PYTHONUNBUFFERED": "1"}, # バッファリング無効化
-                **extra, # Windowsでコンソールウィンドウを表示しないオプション
+            if args['debug'].get():
+                dbg_dir_path = Path(mkdir_dt())  # デバッグ用にフォルダ作成
+            else:
+                dbg_dir_path = None
+
+            if args['debug'].get():
+                print('--- デバッグモード', flush=True)
+                save_ini(dbg_dir_path / 'config.ini', args_val)  # デバッグ用に現在の設定値をiniとして保存
+                for key, value in args_val.items():
+                    if isinstance(value, str):
+                        if os.path.exists(value):
+                            # デバッグ用にファイルをコピー
+                            import shutil
+                            dest_path = dbg_dir_path / os.path.basename(value)
+                            shutil.copy2(value, dest_path)
+                            print(f'  - {key}: {value} を {dest_path} にコピーしました。', flush=True)
+
+            pptx_to_video(
+                pptx_path   = args["file"].get(),
+                output_mp4  = args["output"].get(),
+                dpi         = args["dpi"].get(),
+                quality     = args["quality"].get(),
+                lang        = args["lang"].get(),
+                voicevox    = args["voicevox"].get(),
+                voicevoxid  = args["voicevoxid"].get(),
+                creditimg   = args["creditimg"].get() or None,
+                creditbg    = args["creditbg"].get() or None,
+                creditcolor = args["creditcolor"].get() or None,
+                debug       = args["debug"].get(),
+                dbg_dir_path = dbg_dir_path,
             )
-            for raw_line in proc.stdout:
-                line = _decode_auto(raw_line)
-                self._log(line)
-            proc.wait()
+            self._log(f"\n{'─'*60}\n✅ 完了しました。\n出力: {args['output'].get()}\n")
 
-            if proc.returncode == 0:
-                self._log(f"\n{'─'*60}\n✅ 完了しました。\n出力: {self._vars['output'].get()}\n")
-            else:
-                self._log(f"\n{'─'*60}\n❌ エラーで終了しました（終了コード: {proc.returncode}）\n")
-
-        except FileNotFoundError:
-            self._log(f"\n❌ スクリプトが見つかりません: {SCRIPT_PATH}\n")
         except Exception as e:
-            self._log(f"\n❌ 予期しないエラー: {e}\n")
+            self._log(f"\n❌ エラーが発生しました: {e}\n")
+
         finally:
-            # ボタンをメインスレッドで再有効化
+            # 退避していたラッパー差し替え前の標準出力を戻す
+            sys.stdout = _orig_stdout
             self.after(0, lambda: self.btn_run.config(state="normal"))
-
-    # コマンド構築
-    def _build_command(self) -> list[str]:
-        base_dir = _get_launcher_dir()
-        # slide2movie.exe → slide2movie.py の順で探す
-        exe_path = os.path.join(base_dir, "slide2movie.exe")
-        py_path  = os.path.join(base_dir, "slide2movie.py")
-
-        if os.path.exists(exe_path):
-            cmd = [exe_path]
-        elif os.path.exists(py_path):
-            cmd = [sys.executable, py_path]
-        else:
-            raise FileNotFoundError(f"slide2movie が見つかりません: {base_dir}")
-
-        for opt in OPTION_DEFS:
-            name = opt["name"]
-            var  = self._vars[name]
-
-            if opt["store_true"] or opt["type"] == bool:
-                if var.get():
-                    cmd.append(f"--{name}")
-                else:
-                    cmd.append(f"--no-{name}")
-            else:
-                value = var.get()
-                # 空・None・デフォルト値でも渡す（required対応）
-                if value is not None and str(value) != "":
-                    cmd += [f"--{name}", str(value)]
-
-        return cmd
 
     # -------------------------------------------------------------------
     # ログ操作
