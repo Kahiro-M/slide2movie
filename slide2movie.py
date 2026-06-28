@@ -8,9 +8,6 @@ import argparse
 import sys
 from mkdir_datetime import mkdir_dt,get_today_date,get_now_time
 
-# 標準出力をUTF-8に再設定（Windows環境での文字化け対策）
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-
 # stdout をファイルと元のストリームに同時に書き出すラッパー
 class _Tee:
     def __init__(self, stream, filepath: str):
@@ -27,11 +24,13 @@ class _Tee:
         self._file = open(filepath, "w", encoding="utf-8", buffering=1)
 
     def write(self, data):
-        self._stream.write(data)
+        if self._stream is not None:
+           self._stream.write(data)
         self._file.write(data)
 
     def flush(self):
-        self._stream.flush()
+        if self._stream is not None:
+            self._stream.flush()
         self._file.flush()
 
     def close(self):

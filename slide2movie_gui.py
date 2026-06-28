@@ -249,15 +249,19 @@ class Slide2MovieGUI(tk.Tk):
         # 引数整理
         args = self._vars
         args_val = {key: var.get() for key, var in args.items()}
-        print(f'指定された引数: {args}', flush=True)
 
         if args['debug'].get():
             dbg_dir_path = Path(mkdir_dt())  # デバッグ用にフォルダ作成
             log_path = dbg_dir_path / (Path(args['output'].get()).stem + "_debug.log")
+        else:
+            dbg_dir_path = None
+            log_path = None
 
         # ラッパー差し替え前の標準出力を退避
         _orig_stdout = sys.stdout
         sys.stdout = _GuiWriter(self._log,file_path=log_path)
+
+        print(f'指定された引数: {args}', flush=True)
 
         try:
             if args['debug'].get():
