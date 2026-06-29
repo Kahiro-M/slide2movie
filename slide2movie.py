@@ -303,13 +303,18 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
                 print(f"音声テキスト保存: {audio_text_path}", flush=True)
 
             # voicevoxがローカルで起動しているか確認
-            if voicevox and is_voicevox_running():
+            if voicevox:
                 import requests
                 VOICEVOX_URL = "http://localhost:50021"
                 VOICEVOX_SPEAKER = voicevoxid  # 話者ID
 
                 # VOICEVOX API で音声生成（WAV）
                 try:
+                    if is_voicevox_running()==False:
+                        start_voicevox_engine()
+                        started_by_generate_audio_files = True
+                    else:
+                        started_by_generate_audio_files = False
                     query = requests.post(
                         f"{VOICEVOX_URL}/audio_query",
                         params={"text": text, "speaker": VOICEVOX_SPEAKER}
@@ -330,6 +335,10 @@ def generate_audio_files(pptx_path, audio_dir="slides_audio", lang="ja", voicevo
                 except Exception as e:
                     print(f"スライド {i+1}: VOICEVOX音声生成失敗 ({e}) → Noneとして処理", flush=True)
                     audio_paths.append(None)
+
+                finally:
+                    if started_by_generate_audio_files:
+                        stop_voicevox_engine()
             else:
                 tts = gTTS(text=text, lang=lang, slow=False)
                 audio_path = os.path.join(audio_dir, f"audio_{i+1:03d}.mp3")
@@ -355,6 +364,102 @@ def is_voicevox_running(url="http://localhost:50021"):
         return res.status_code == 200
     except requests.exceptions.ConnectionError:
         return False
+
+# VOICEVOXの実行パス検索
+def find_voicevox_path() -> str:
+    import shutil
+    import platform
+    from pathlib import Path
+
+    # まず PATH から探す
+    candidates = [
+        "voicevox_engine",
+        "voicevox",
+    ]
+    for name in candidates:
+        found = shutil.which(name)
+        if found:
+            return found
+
+    # Windows のよくある配置もフォールバックで確認
+    if platform.system() == "Windows":
+        fallback = [
+            r"C:\Program Files\VOICEVOX\VOICEVOX.exe",
+            r"C:\Program Files\VOICEVOX\run.exe",
+            r"C:\VOICEVOX\VOICEVOX.exe",
+            r"C:\VOICEVOX\run.exe",
+            str(Path.home() / "AppData" / "Local" / "Programs" / "VOICEVOX" / "VOICEVOX.exe"),
+            str(Path.home() / "AppData" / "Local" / "Programs" / "VOICEVOX" / "vv-engine" / "run.exe"),
+        ]
+        for p in fallback:
+            if Path(p).exists():
+                return p
+
+    raise FileNotFoundError(
+        "VOICEVOX エンジンが PATH 上に見つかりません。"
+        " voicevox_engine / voicevox / run.exe などが実行可能になっているか確認してください。"
+    )
+
+# VOICEVOXプロセス管理変数を初期化
+_voicevox_proc = None
+
+# VOICEVOXエンジン起動関数
+def start_voicevox_engine(voicevox_path=None, port=50021):
+    import subprocess
+    import time
+    global _voicevox_proc
+
+    # 起動済みなら何もしない
+    if is_voicevox_running(f"http://localhost:{port}"):
+        return None
+
+    # 起動済みなら何もしない
+    if voicevox_path is None:
+        voicevox_path = find_voicevox_path()
+
+    # 例: VOICEVOXエンジン起動コマンド
+    cmd = [voicevox_path, "--host", "127.0.0.1", "--port", str(port)]
+
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 7  # SW_SHOWMINNOACTIVE	最小化・非アクティブ
+
+    _voicevox_proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        startupinfo=si,
+    )
+
+    # 起動待ち
+    for _ in range(60):
+        if is_voicevox_running(f"http://localhost:{port}"):
+            return _voicevox_proc
+        time.sleep(1)
+
+    raise RuntimeError("VOICEVOXエンジンの起動に失敗しました")
+
+
+# VOICEVOXエンジン終了関数
+def stop_voicevox_engine():
+    import subprocess
+    global _voicevox_proc
+
+    # VOICEVOXが起動していない場合は何もしない
+    if _voicevox_proc is None:
+        return
+
+    # VOICEVOXが起動中なら終了させる
+    if _voicevox_proc.poll() is None:
+        _voicevox_proc.terminate()
+        try:
+            _voicevox_proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            _voicevox_proc.kill()
+
+    # VOICEVOXプロセス管理変数を初期化
+    _voicevox_proc = None
+
 
 # VOICEVOXの話者IDからクレジット表示文言を生成
 # Args:
@@ -650,6 +755,12 @@ def pptx_to_video(
 
     print(f"[ENV] OS={ENV_OS}, PowerPoint={ENV_USE_PPT}, LibreOffice={ENV_USE_LIBREOFFICE}, VOICEVOX={ENV_USE_VOICEVOX}", flush=True)
 
+    if voicevox and is_voicevox_running()==False:
+        start_voicevox_engine()
+        started_by_pptx_to_video = True
+    else:
+        started_by_pptx_to_video = False
+
     print("=== STEP 1: PNG変換 ===", flush=True)
     if ENV_USE_PPT:
         print("PowerPoint COMを使用してPNG変換します。", flush=True)
@@ -751,6 +862,8 @@ def pptx_to_video(
         print("[DEBUG] 音声ファイルを保持しています。", flush=True)
 
     print(f"\n✅ 完了: {output_mp4}", flush=True)
+    if started_by_pptx_to_video:
+        stop_voicevox_engine()
 
 # #RRGGBB 形式の文字列を (R, G, B) タプルに変換
 def hex_color(value: str) -> tuple[int, int, int]:

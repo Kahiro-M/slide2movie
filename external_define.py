@@ -15,6 +15,7 @@ OPTION_DEFS = [
     dict(name='lang',        type=str,  default='ja',          required=False, store_true=False, frame='基本設定',       help='音声言語コード'),
     dict(name='voicevox',    type=bool, default=False,         required=False, store_true=True,  frame='VOICEVOX設定',   help='VOICEVOX音声モード'),
     dict(name='voicevoxid',  type=int,  default=3,             required=False, store_true=False, frame='VOICEVOX設定',   help='VOICEVOX話者ID'),
+    dict(name='voicevoxpath',type=str,  default=None,          required=False, store_true=False, frame='VOICEVOX設定',   help='VOICEVOX実行パス（未指定なら自動検出）'),
     dict(name='creditimg',   type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット画像パス'),
     dict(name='creditbg',    type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット背景色（未指定の場合 #FFFFFF）'),
     dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジットテキスト色（未指定の場合 #FF6600）'),
@@ -27,7 +28,7 @@ CONFIG_DEFAULT = "config.ini"
 # ──────────────
 COMMON_TEXT = {
     'PROGRAM_NAME'   : 'Slide to Movie',
-    'VERSION_NUMBER' : 'v.0.0.14',
+    'VERSION_NUMBER' : 'v.0.0.15',
 }
 
 # ──────────────
