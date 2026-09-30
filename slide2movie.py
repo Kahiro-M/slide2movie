@@ -177,6 +177,25 @@ def is_powerpoint_available() -> bool:
     except Exception:
         return False
 
+# PyMuPDFを使ってPDFをPNGに変換する関数
+def pdf_to_png_with_pymupdf( pdf_path: str, output_dir: str="slides_png", dpi: int = 300,) -> list[Path]:
+    import fitz
+    pdf = fitz.open(pdf_path)
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+
+    scale = dpi / 72
+    matrix = fitz.Matrix(scale, scale)
+    files = []
+
+    for page_number, page in enumerate(pdf, start=1):
+        image = page.get_pixmap(matrix=matrix, alpha=False)
+        path = output / f"slide_{page_number:03d}.png"
+        image.save(path)
+        files.append(path)
+
+    pdf.close()
+    return files
 
 # LibreOfficeを使ってスライドをPNGに変換する
 # Args:
@@ -184,7 +203,7 @@ def is_powerpoint_available() -> bool:
 #     output_dir (str): 出力ディレクトリ
 # Returns:
 #     list[str]: 生成されたPNGファイルパスのリスト（スライド順）
-def pptx_to_pngs_libreoffice(pptx_path, output_dir="slides_png"):
+def pptx_to_pngs_libreoffice(pptx_path, officepath, output_dir="slides_png", dpi=300):
     import subprocess
 
     if os.path.exists(output_dir):
@@ -194,32 +213,19 @@ def pptx_to_pngs_libreoffice(pptx_path, output_dir="slides_png"):
     abs_pptx = str(Path(pptx_path).resolve())
     abs_out = str(Path(output_dir).resolve())
 
-    # LibreOfficeのパス候補（環境に合わせて調整）
-    libreoffice_candidates = [
-        r"C:\Program Files\LibreOffice\program\soffice.exe",
-        r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
-        "soffice",  # PATH が通っている場合
-    ]
-    libreoffice_path = None
-    for candidate in libreoffice_candidates:
-        if Path(candidate).exists() or candidate == "soffice":
-            libreoffice_path = candidate
-            break
-
-    if libreoffice_path is None:
-        raise FileNotFoundError("LibreOfficeが見つかりません。インストール先を確認してください。")
-
+    # pptx → pdf → png の順で変換する
     subprocess.run(
         [
-            libreoffice_path,
+            officepath,
             "--headless",
-            "--convert-to", "png",
-            "--infilter=Impress PNG Export", 
+            "--convert-to", "pdf",
             "--outdir", abs_out,
             abs_pptx,
         ],
         check=True,
     )
+    
+    pdf_to_png_with_pymupdf(str(Path(abs_out) / Path(abs_pptx).stem) +".pdf", abs_out, dpi=dpi)
 
     # LibreOfficeの出力ファイル名は元ファイル名ベースになるため、
     # slide_001.png 形式にリネーム
@@ -735,6 +741,8 @@ def pptx_to_video(
     dpi=150,
     quality=5,
     lang="ja",
+    office="LibreOffice",
+    officepath="simpress.exe",
     png_dir="slides_png",
     audio_dir="slides_audio",
     voicevox=False,
@@ -762,12 +770,12 @@ def pptx_to_video(
         started_by_pptx_to_video = False
 
     print("=== STEP 1: PNG変換 ===", flush=True)
-    if ENV_USE_PPT:
+    if office == "MicrosoftOffice":
         print("PowerPoint COMを使用してPNG変換します。", flush=True)
         png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
-    elif ENV_USE_LIBREOFFICE:
+    elif office == "LibreOffice":
         print("LibreOfficeを使用してPNG変換します。", flush=True)
-        png_paths = pptx_to_pngs_libreoffice(pptx_path, output_dir=png_dir)
+        png_paths = pptx_to_pngs_libreoffice(pptx_path, officepath=officepath, output_dir=png_dir, dpi=dpi)
     else:
         print("PowerPoint・LibreOfficeが見つかりません。python-pptx + Pillowでフォールバック変換します。", flush=True)
         png_paths = pptx_to_pngs(pptx_path, output_dir=png_dir, dpi=dpi)

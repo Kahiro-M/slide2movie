@@ -7,19 +7,21 @@ import configparser
 # ──────────────
 ARG_DESCRIPTION = 'PPTXファイルをMP4動画に変換する'
 OPTION_DEFS = [
-    #    name                type       default                required        store_true        frame(GUI用)            help
-    dict(name='file',        type=str,  default='input.pptx',  required=True,  store_true=False, frame='ファイル設定',   help='入力PPTXファイルパス'),
-    dict(name='output',      type=str,  default='output.mp4',  required=True,  store_true=False, frame='ファイル設定',   help='出力MP4ファイルパス'),
-    dict(name='dpi',         type=int,  default=150,           required=False, store_true=False, frame='基本設定',       help='PNG解像度'),
-    dict(name='quality',     type=int,  default=5,             required=False, store_true=False, frame='基本設定',       help='動画品質（1-31、値が小さいほど高品質）'),
-    dict(name='lang',        type=str,  default='ja',          required=False, store_true=False, frame='基本設定',       help='音声言語コード'),
-    dict(name='voicevox',    type=bool, default=False,         required=False, store_true=True,  frame='VOICEVOX設定',   help='VOICEVOX音声モード'),
-    dict(name='voicevoxid',  type=int,  default=3,             required=False, store_true=False, frame='VOICEVOX設定',   help='VOICEVOX話者ID'),
-    dict(name='voicevoxpath',type=str,  default=None,          required=False, store_true=False, frame='VOICEVOX設定',   help='VOICEVOX実行パス（未指定なら自動検出）'),
-    dict(name='creditimg',   type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット画像パス'),
-    dict(name='creditbg',    type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジット背景色（未指定の場合 #FFFFFF）'),
-    dict(name='creditcolor', type=str,  default=None,          required=False, store_true=False, frame='クレジット設定', help='クレジットテキスト色（未指定の場合 #FF6600）'),
-    dict(name='debug',       type=bool, default=False,         required=False, store_true=True,  frame='その他',         help='デバッグモード'),
+    #    name                type       default                    required        store_true        frame(GUI用)            choice                                    help
+    dict(name='file',        type=str,  default='input.pptx',   required=True,  store_true=False, frame='ファイル設定',   choices=None,                              help='入力PPTXファイルパス'),
+    dict(name='output',      type=str,  default='output.mp4',   required=True,  store_true=False, frame='ファイル設定',   choices=None,                              help='出力MP4ファイルパス'),
+    dict(name='dpi',         type=int,  default=150,            required=False, store_true=False, frame='基本設定',       choices=None,                              help='PNG解像度'),
+    dict(name='quality',     type=int,  default=5,              required=False, store_true=False, frame='基本設定',       choices=None,                              help='動画品質（1-31、値が小さいほど高品質）'),
+    dict(name='lang',        type=str,  default='ja',           required=False, store_true=False, frame='基本設定',       choices=None,                              help='音声言語コード'),
+    dict(name='office',      type=str,  default='LibreOffice',  required=True,  store_true=False, frame='office設定',     choices=['LibreOffice','MicrosoftOffice'], help='Officeの種類'),
+    dict(name='officepath',  type=str,  default='simpress.exe', required=False, store_true=False, frame='office設定',     choices=None,                              help='Office実行パス'),
+    dict(name='voicevox',    type=bool, default=False,          required=False, store_true=True,  frame='VOICEVOX設定',   choices=None,                              help='VOICEVOX音声モード'),
+    dict(name='voicevoxid',  type=int,  default=3,              required=False, store_true=False, frame='VOICEVOX設定',   choices=None,                              help='VOICEVOX話者ID'),
+    dict(name='voicevoxpath',type=str,  default=None,           required=False, store_true=False, frame='VOICEVOX設定',   choices=None,                              help='VOICEVOX実行パス（未指定なら自動検出）'),
+    dict(name='creditimg',   type=str,  default=None,           required=False, store_true=False, frame='クレジット設定', choices=None,                              help='クレジット画像パス'),
+    dict(name='creditbg',    type=str,  default=None,           required=False, store_true=False, frame='クレジット設定', choices=None,                              help='クレジット背景色（未指定の場合 #FFFFFF）'),
+    dict(name='creditcolor', type=str,  default=None,           required=False, store_true=False, frame='クレジット設定', choices=None,                              help='クレジットテキスト色（未指定の場合 #FF6600）'),
+    dict(name='debug',       type=bool, default=False,          required=False, store_true=True,  frame='その他',         choices=None,                              help='デバッグモード'),
 ]
 CONFIG_DEFAULT = "config.ini"
 

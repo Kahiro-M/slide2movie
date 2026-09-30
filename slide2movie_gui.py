@@ -131,6 +131,12 @@ class Slide2MovieGUI(tk.Tk):
                                 textvariable=var, width=10).grid(
                         row=row, column=1, sticky="w", padx=6)
 
+                elif opt.get("choices"):
+                    # ドロップダウン
+                    ttk.Label(lf, text=label).grid(row=row, column=0, sticky="w", pady=3)
+                    ttk.Combobox(lf, textvariable=var, values=opt['choices'], width=20, state="normal").grid(
+                        row=row, column=1, sticky="w", padx=6)
+
                 elif any(kw in name.lower() for kw in FILE_KEYWORDS):
                     ttk.Label(lf, text=label).grid(row=row, column=0, sticky="w", pady=3)
                     ttk.Entry(lf, textvariable=var, width=40).grid(
@@ -287,6 +293,8 @@ class Slide2MovieGUI(tk.Tk):
                 dpi         = args["dpi"].get(),
                 quality     = args["quality"].get(),
                 lang        = args["lang"].get(),
+                office      = args["office"].get(),
+                officepath  = args["officepath"].get(),
                 voicevox    = args["voicevox"].get(),
                 voicevoxid  = args["voicevoxid"].get(),
                 creditimg   = args["creditimg"].get() or None,

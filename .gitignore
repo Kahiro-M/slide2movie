@@ -231,3 +231,5 @@ logo.png
 config.ini
 ignore/*
 
+202*/*
+LibreOfficePortable*/*

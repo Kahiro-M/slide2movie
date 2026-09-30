@@ -1,11 +1,16 @@
 [settings]
-file        = /path/to/input.pptx
-output      = /path/to/output.mp4
-dpi         = 150
-lang        = ja
-voicevox    = false
-voicevoxid  = 3
-creditimg   = /path/to/credit.png
-creditbg    = #000000
-creditcolor = #ffffff
-debug       = false
+file         = /path/to/input.pptx
+output       = /path/to/output.mp4
+dpi          = 150
+quality      = 5
+lang         = ja
+office       = LibreOffice
+officepath   = LibreOfficePortable/App/libreoffice/program/simpress.exe
+voicevox     = true
+voicevoxid   = 9
+voicevoxpath = 
+creditimg    = /path/to/logo.png
+creditbg     = 
+creditcolor  = 
+debug        = true
+
