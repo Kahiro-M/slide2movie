@@ -179,13 +179,13 @@ def is_powerpoint_available() -> bool:
 
 # PyMuPDFを使ってPDFをPNGに変換する関数
 def pdf_to_png_with_pymupdf( pdf_path: str, output_dir: str="slides_png", dpi: int = 300,) -> list[Path]:
-    import fitz
-    pdf = fitz.open(pdf_path)
+    import pymupdf
+    pdf = pymupdf.open(pdf_path)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
 
     scale = dpi / 72
-    matrix = fitz.Matrix(scale, scale)
+    matrix = pymupdf.Matrix(scale, scale)
     files = []
 
     for page_number, page in enumerate(pdf, start=1):
@@ -224,7 +224,10 @@ def pptx_to_pngs_libreoffice(pptx_path, officepath, output_dir="slides_png", dpi
         ],
         check=True,
     )
-    
+    print(f"pdf_to_png_with_pymupdf()", flush=True)
+    print(f"   - abs_out: {abs_out}", flush=True)
+    print(f"   - abs_pptx: {abs_pptx}", flush=True)
+    print(f"   - dpi: {dpi}", flush=True)
     pdf_to_png_with_pymupdf(str(Path(abs_out) / Path(abs_pptx).stem) +".pdf", abs_out, dpi=dpi)
 
     # LibreOfficeの出力ファイル名は元ファイル名ベースになるため、
@@ -775,6 +778,11 @@ def pptx_to_video(
         png_paths = pptx_to_pngs_com(pptx_path, output_dir=png_dir)
     elif office == "LibreOffice":
         print("LibreOfficeを使用してPNG変換します。", flush=True)
+        print(f"pptx_to_pngs_libreoffice()", flush=True)
+        print(f"   - pptx_path: {pptx_path}", flush=True)
+        print(f"   - officepath: {officepath}", flush=True)
+        print(f"   - output_dir: {png_dir}", flush=True)
+        print(f"   - dpi: {dpi}", flush=True)
         png_paths = pptx_to_pngs_libreoffice(pptx_path, officepath=officepath, output_dir=png_dir, dpi=dpi)
     else:
         print("PowerPoint・LibreOfficeが見つかりません。python-pptx + Pillowでフォールバック変換します。", flush=True)
