@@ -30,7 +30,7 @@ CONFIG_DEFAULT = "config.ini"
 # ──────────────
 COMMON_TEXT = {
     'PROGRAM_NAME'   : 'Slide to Movie',
-    'VERSION_NUMBER' : 'v.1.0.0',
+    'VERSION_NUMBER' : 'v.1.0.1',
 }
 
 # ──────────────
